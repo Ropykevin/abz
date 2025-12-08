@@ -1,7 +1,6 @@
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timezone, timedelta
+
 from decimal import Decimal
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, make_response
+from flask import render_template, request, redirect, url_for, flash, jsonify, make_response
 import csv
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
@@ -9,48 +8,31 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from io import BytesIO, StringIO
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from sqlalchemy.exc import IntegrityError
-import cloudinary
-import cloudinary.uploader
-import cloudinary.api
-from werkzeug.utils import secure_filename
 import os
-from config import Config
-from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_, func, and_, case
-from sqlalchemy.orm import joinedload
+# Import models after db is initialized
+from models.admin import Branch, Category, User, OrderType, Order, OrderItem, StockTransaction, Payment, SubCategory, ProductDescription, Expense, Supplier, PurchaseOrder, PurchaseOrderItem, ProductCatalog, BranchProduct, Quotation, QuotationItem
 
-from extensions import db
 
-app = Flask(__name__)
-app.config.from_object(Config)
+#New Compied Code
+from flask import Blueprint
+from config.appconfig import Config, login_manager,current_user,login_required,datetime,timedelta
+from config.dbconfig import db,EAT
 
-# Add session debugging
-print(f"🔍 Session configuration:")
-print(f"   - SECRET_KEY set: {'Yes' if app.config.get('SECRET_KEY') else 'No'}")
-print(f"   - SESSION_COOKIE_SECURE: {app.config.get('SESSION_COOKIE_SECURE', 'Not set')}")
-print(f"   - SESSION_COOKIE_HTTPONLY: {app.config.get('SESSION_COOKIE_HTTPONLY', 'Not set')}")
+app_admin = Blueprint('app_admin', __name__)
+login_manager.login_view = 'app_admin.login'
 
-# Cloudinary Configuration
-cloudinary.config(
-    cloud_name = app.config['CLOUDINARY_CLOUD_NAME'],
-    api_key = app.config['CLOUDINARY_API_KEY'],
-    api_secret = app.config['CLOUDINARY_API_SECRET']
-)
+# Configuration for file uploads (keeping for fallback)
+UPLOAD_FOLDER = Config().UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = Config().ALLOWED_EXTENSIONS
 
-# Initialize SQLAlchemy with the app
-db.init_app(app)
+#End New Compiled Code
 
-# Initialize Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
 
 # Custom template filter for formatting stock numbers
-@app.template_filter('format_stock')
+@app_admin.app_template_filter('format_stock')
 def format_stock(value):
     """Format stock numbers without unnecessary decimal places."""
     if value is None:
@@ -68,19 +50,10 @@ def format_stock(value):
     except (ValueError, TypeError):
         return str(value)
 
-# Import models after db is initialized
-from models import Branch, Category, User, OrderType, Order, OrderItem, StockTransaction, Payment, SubCategory, ProductDescription, Expense, Supplier, PurchaseOrder, PurchaseOrderItem, ProductCatalog, BranchProduct, Quotation, QuotationItem
-
-# Define EAT timezone
-EAT = timezone(timedelta(hours=3))
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-with app.app_context():
-    db.create_all()
-    print("✅ All tables created successfully in PostgreSQL.")
 
 # Custom decorator for role-based access
 def role_required(roles):
@@ -88,16 +61,16 @@ def role_required(roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
-                return redirect(url_for('login', next=request.url))
+                return redirect(url_for('app_admin.login', next=request.url))
             if not hasattr(current_user, 'role') or current_user.role not in roles:
                 flash('You do not have permission to access this page.', 'danger')
                 # Redirect to a safe page instead of index to avoid potential loops
-                return redirect(url_for('unauthorized'))
+                return redirect(url_for('app_admin.unauthorized'))
             return f(*args, **kwargs)
         return decorated_function
     return wrapper
 
-@app.route("/")
+@app_admin.route("/")
 @login_required
 @role_required(['admin']) 
 def index():
@@ -322,9 +295,9 @@ def index():
                 if item.final_price and item.buying_price:
                     item_profit = (item.final_price - item.buying_price) * item.quantity
                     order_profit += item_profit
-                    print(f"    💰 Profit: ({item.final_price} - {item.buying_price}) × {item.quantity} = {item_profit}")
+                    print(f"Profit: ({item.final_price} - {item.buying_price}) * {item.quantity} = {item_profit}")
                 else:
-                    print(f"    ⚠️ Cannot calculate profit - missing price data")
+                    print(f"Cannot calculate profit - missing price data")
                     print(f"      final_price: {item.final_price}")
                     print(f"      buying_price: {item.buying_price}")
             
@@ -442,7 +415,7 @@ def index():
         monthly_expenses = 0
     
     try:
-        return render_template("index.html", 
+        return render_template("admin_portal.index.html", 
                              total_users=total_users,
                              total_products=total_products,
                              total_orders=total_orders,
@@ -475,14 +448,14 @@ def index():
     except Exception as e:
         print(f"Error in index route: {e}")
         flash('An error occurred while loading dashboard data. Please try again.', 'error')
-        return redirect(url_for('login'))
+        return redirect(url_for('app_admin.login'))
 
-@app.route("/login", methods=["GET", "POST"])
+@app_admin.route("/login", methods=["GET", "POST"])
 def login():
     print(f"🔍 Login route accessed - User authenticated: {current_user.is_authenticated}")
     if current_user.is_authenticated:
         print(f"🔍 User already authenticated, redirecting to index")
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
         
     if request.method == "POST":
         email = request.form.get("email")
@@ -490,7 +463,7 @@ def login():
         
         if not email or not password:
             flash('Please provide both email and password.', 'danger')
-            return render_template("login.html")
+            return render_template("admin_portal.login.html")
         
         user = User.query.filter_by(email=email).first()
         
@@ -499,18 +472,18 @@ def login():
             next_page = request.args.get('next')
             if next_page and next_page.startswith('/'):
                 return redirect(next_page)
-            return redirect(url_for('index'))
+            return redirect(url_for('app_admin.index'))
         else:
             flash('Invalid email or password. Please try again.', 'danger')
-            return render_template("login.html")
+            return render_template("admin_portal.login.html")
     
-    return render_template("login.html")
+    return render_template("admin_portal.login.html")
 
-@app.route('/register', methods=['GET', 'POST'])
+@app_admin.route('/register', methods=['GET', 'POST'])
 def register():
     # Temporarily allow registration without authentication
     # if current_user.is_authenticated:
-    #     return redirect(url_for('index'))
+    #     return redirect(url_for('app_admin.index'))
         
     if request.method == "POST":
         email = request.form.get("email")
@@ -523,21 +496,21 @@ def register():
         # Validation
         if not email or not firstname or not lastname or not password or not confirm_password:
             flash('All required fields must be filled', 'danger')
-            return redirect(url_for('register'))
+            return redirect(url_for('app_admin.register'))
         
         if password != confirm_password:
             flash('Passwords do not match', 'danger')
-            return redirect(url_for('register'))
+            return redirect(url_for('app_admin.register'))
         
         if len(password) < 6:
             flash('Password must be at least 6 characters long', 'danger')
-            return redirect(url_for('register'))
+            return redirect(url_for('app_admin.register'))
         
         # Check if email already exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
             flash('Email already exists. Please use a different email.', 'danger')
-            return redirect(url_for('register'))
+            return redirect(url_for('app_admin.register'))
         
         # Get role from form
         role = request.form.get("role", "admin")
@@ -557,23 +530,23 @@ def register():
             db.session.add(new_user)
             db.session.commit()
             flash('Admin user registered successfully! You can now login.', 'success')
-            return redirect(url_for('login'))
+            return redirect(url_for('app_admin.login'))
         except Exception as e:
             db.session.rollback()
             print(f"Error registering user: {e}")
             flash('An error occurred while registering. Please try again.', 'danger')
-            return redirect(url_for('register'))
+            return redirect(url_for('app_admin.register'))
     
-    return render_template("register.html")
+    return render_template("admin_portal.register.html")
 
-@app.route('/logout')
+@app_admin.route('/logout')
 @login_required
 def logout():
     logout_user()
     flash('You have been logged out successfully.', 'success')
-    return redirect(url_for('login'))
+    return redirect(url_for('app_admin.login'))
 
-@app.route('/test_auth')
+@app_admin.route('/test_auth')
 @login_required
 def test_auth():
     return jsonify({
@@ -583,7 +556,7 @@ def test_auth():
         'role': current_user.role if current_user.is_authenticated else None
     })
 
-@app.route('/debug_order/<int:order_id>')
+@app_admin.route('/debug_order/<int:order_id>')
 @login_required
 @role_required(['admin'])
 def debug_order(order_id):
@@ -617,21 +590,17 @@ def debug_order(order_id):
     except Exception as e:
         return jsonify({'error': str(e)})
 
-@app.route('/unauthorized')
+@app_admin.route('/unauthorized')
 @login_required
 def unauthorized():
     return render_template('unauthorized.html')
 
 # Example of a protected route
-@app.route("/dashboard")
+@app_admin.route("/dashboard")
 @login_required
 @role_required(['admin'])  # Only admin and manager can access
 def dashboard():
-    return render_template("dashboard.html")
-
-# Configuration for file uploads (keeping for fallback)
-UPLOAD_FOLDER = app.config['UPLOAD_FOLDER']
-ALLOWED_EXTENSIONS = app.config['ALLOWED_EXTENSIONS']
+    return render_template("admin_portal.dashboard.html")
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -674,7 +643,7 @@ def delete_from_cloudinary(public_id):
         return False
 
 # Custom template filter for formatting quantities
-@app.template_filter('format_quantity')
+@app_admin.app_template_filter('format_quantity')
 def format_quantity(value):
     """Format quantity to remove unnecessary decimal places"""
     if value is None:
@@ -694,13 +663,13 @@ def format_quantity(value):
         return str(value)
 
 # Context processor to make branches available to all templates
-@app.context_processor
+@app_admin.context_processor
 def inject_branches():
     branches = Branch.query.order_by(Branch.name).all()
     return dict(branches=branches)
 
 # Context processor to make user data available to all templates
-@app.context_processor
+@app_admin.context_processor
 def inject_user_data():
     if current_user.is_authenticated:
         return dict(
@@ -711,7 +680,7 @@ def inject_user_data():
     return dict(current_user=None, user_full_name="", user_role="")
 
 # Categories Routes
-@app.route('/products')
+@app_admin.route('/products')
 @login_required
 @role_required(['admin'])
 def products():
@@ -800,7 +769,7 @@ def products():
                              category_filter=category_filter,
                              display_filter=display_filter)
 
-@app.route('/export_products_csv')
+@app_admin.route('/export_products_csv')
 @login_required
 @role_required(['admin'])
 def export_products_csv():
@@ -867,9 +836,9 @@ def export_products_csv():
     except Exception as e:
         print(f"Error exporting products to CSV: {e}")
         flash('An error occurred while exporting products.', 'error')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
 
-@app.route('/export_products_by_category_csv')
+@app_admin.route('/export_products_by_category_csv')
 @login_required
 @role_required(['admin'])
 def export_products_by_category_csv():
@@ -1022,9 +991,9 @@ def export_products_by_category_csv():
     except Exception as e:
         print(f"Error exporting products by category to CSV: {e}")
         flash('An error occurred while exporting products by category.', 'error')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
 
-@app.route('/export_products_by_category_pdf')
+@app_admin.route('/export_products_by_category_pdf')
 @login_required
 @role_required(['admin'])
 def export_products_by_category_pdf():
@@ -1134,7 +1103,7 @@ def export_products_by_category_pdf():
         
         # Load the logo image
         try:
-            logo_path = os.path.join(app.static_folder, 'assets', 'img', 'logo.png')
+            logo_path = os.path.join(app_admin.static_folder, 'assets', 'img', 'logo.png')
             print(f"Loading logo from: {logo_path}")
             logo_image = Image(logo_path, width=1.5*inch, height=1*inch)
             logo_cell = logo_image
@@ -1268,9 +1237,9 @@ def export_products_by_category_pdf():
     except Exception as e:
         print(f"Error exporting products by category to PDF: {e}")
         flash('An error occurred while exporting products by category to PDF.', 'error')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
 
-@app.route('/branch_products/<int:branch_id>')
+@app_admin.route('/branch_products/<int:branch_id>')
 @login_required
 @role_required(['admin'])
 def branch_products(branch_id):
@@ -1350,7 +1319,7 @@ def branch_products(branch_id):
                              category_filter=category_filter,
                              display_filter=display_filter)
 
-@app.route('/add_category', methods=['GET', 'POST'])
+@app_admin.route('/add_category', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def add_category():
@@ -1360,13 +1329,13 @@ def add_category():
         
         if not name:
             flash('Category name is required', 'error')
-            return redirect(url_for('add_category'))
+            return redirect(url_for('app_admin.add_category'))
         
         # Check if category name already exists
         existing_category = Category.query.filter_by(name=name).first()
         if existing_category:
             flash('Category name already exists. Please use a different name.', 'error')
-            return redirect(url_for('add_category'))
+            return redirect(url_for('app_admin.add_category'))
         
         # Handle image upload to Cloudinary
         image_url = None
@@ -1378,21 +1347,21 @@ def add_category():
                     image_url = upload_to_cloudinary(file)
                     if not image_url:
                         flash('Failed to upload image. Please try again.', 'error')
-                        return redirect(url_for('add_category'))
+                        return redirect(url_for('app_admin.add_category'))
                 except Exception as e:
                     flash(f'Error uploading image: {str(e)}', 'error')
-                    return redirect(url_for('add_category'))
+                    return redirect(url_for('app_admin.add_category'))
         
         new_category = Category(name=name, description=description, image_url=image_url)
         db.session.add(new_category)
         db.session.commit()
         
         flash('Category added successfully', 'success')
-        return redirect(url_for('categories'))
+        return redirect(url_for('app_admin.categories'))
     
     return render_template('add_category.html')
 
-@app.route('/edit_category/<int:id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_category/<int:id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_category(id):
@@ -1402,12 +1371,12 @@ def edit_category(id):
         description = request.form.get('description')
         if not name:
             flash('Category name is required', 'error')
-            return redirect(url_for('edit_category', id=id))
+            return redirect(url_for('app_admin.edit_category', id=id))
         # Check if category name already exists (excluding current category)
         existing_category = Category.query.filter_by(name=name).first()
         if existing_category and existing_category.id != id:
             flash('Category name already exists. Please use a different name.', 'error')
-            return redirect(url_for('edit_category', id=id))
+            return redirect(url_for('app_admin.edit_category', id=id))
         
         # Handle image upload if a new image is provided
         if 'image' in request.files:
@@ -1422,21 +1391,21 @@ def edit_category(id):
                     image_url = upload_to_cloudinary(file)
                     if not image_url:
                         flash('Failed to upload new image. Please try again.', 'error')
-                        return redirect(url_for('edit_category', id=id))
+                        return redirect(url_for('app_admin.edit_category', id=id))
                     
                     category.image_url = image_url
                 except Exception as e:
                     flash(f'Error uploading image: {str(e)}', 'error')
-                    return redirect(url_for('edit_category', id=id))
+                    return redirect(url_for('app_admin.edit_category', id=id))
         
         category.name = name
         category.description = description
         db.session.commit()
         flash('Category updated successfully', 'success')
-        return redirect(url_for('categories'))
+        return redirect(url_for('app_admin.categories'))
     return render_template('edit_category.html', category=category)
 
-@app.route('/delete_category/<int:id>', methods=['POST'])
+@app_admin.route('/delete_category/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_category(id):
@@ -1444,22 +1413,22 @@ def delete_category(id):
         category = Category.query.get_or_404(id)
         if category.products:
             flash('Cannot delete category with associated products', 'error')
-            return redirect(url_for('categories'))
+            return redirect(url_for('app_admin.categories'))
         db.session.delete(category)
         db.session.commit()
         flash('Category deleted successfully', 'success')
-        return redirect(url_for('categories'))
+        return redirect(url_for('app_admin.categories'))
     except IntegrityError as e:
         db.session.rollback()
         flash('Cannot delete this category. It has associated products or other related records.', 'error')
-        return redirect(url_for('categories'))
+        return redirect(url_for('app_admin.categories'))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while deleting the category. Please try again.', 'error')
-        return redirect(url_for('categories'))
+        return redirect(url_for('app_admin.categories'))
 
 # ProductCatalog Catalog Routes
-@app.route('/product_catalog')
+@app_admin.route('/product_catalog')
 @login_required
 @role_required(['admin'])
 def product_catalog():
@@ -1524,7 +1493,7 @@ def product_catalog():
                              search=search,
                              category_filter=category_filter)
 
-@app.route('/add_product_to_catalog', methods=['POST'])
+@app_admin.route('/add_product_to_catalog', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def add_product_to_catalog():
@@ -1536,7 +1505,7 @@ def add_product_to_catalog():
     # Basic validation
     if not name:
         flash('ProductCatalog name is required', 'error')
-        return redirect(url_for('product_catalog'))
+        return redirect(url_for('app_admin.product_catalog'))
     
     # Handle file upload to Cloudinary
     image_url = None
@@ -1548,10 +1517,10 @@ def add_product_to_catalog():
                 image_url = upload_to_cloudinary(file)
                 if not image_url:
                     flash('Failed to upload image. Please try again.', 'error')
-                    return redirect(url_for('product_catalog'))
+                    return redirect(url_for('app_admin.product_catalog'))
             except Exception as e:
                 flash(f'Error uploading image: {str(e)}', 'error')
-                return redirect(url_for('product_catalog'))
+                return redirect(url_for('app_admin.product_catalog'))
     
     # Convert empty strings to None
     subcategory_id = int(subcategory_id) if subcategory_id else None
@@ -1567,9 +1536,9 @@ def add_product_to_catalog():
     db.session.commit()
     
     flash('ProductCatalog added to catalog successfully', 'success')
-    return redirect(url_for('product_catalog'))
+    return redirect(url_for('app_admin.product_catalog'))
 
-@app.route('/edit_catalog_product/<int:id>', methods=['POST'])
+@app_admin.route('/edit_catalog_product/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def edit_catalog_product(id):
@@ -1583,7 +1552,7 @@ def edit_catalog_product(id):
     # Basic validation
     if not catalog_product.name:
         flash('ProductCatalog name is required', 'error')
-        return redirect(url_for('product_catalog'))
+        return redirect(url_for('app_admin.product_catalog'))
     
     # Handle file upload if a new image is provided
     if 'image' in request.files:
@@ -1598,19 +1567,19 @@ def edit_catalog_product(id):
                 image_url = upload_to_cloudinary(file)
                 if not image_url:
                     flash('Failed to upload new image. Please try again.', 'error')
-                    return redirect(url_for('product_catalog'))
+                    return redirect(url_for('app_admin.product_catalog'))
                 
                 catalog_product.image_url = image_url
             except Exception as e:
                 flash(f'Error uploading image: {str(e)}', 'error')
-                return redirect(url_for('product_catalog'))
+                return redirect(url_for('app_admin.product_catalog'))
     
     db.session.commit()
     
     flash('Catalog product updated successfully', 'success')
-    return redirect(url_for('product_catalog'))
+    return redirect(url_for('app_admin.product_catalog'))
 
-@app.route('/delete_catalog_product/<int:id>', methods=['POST'])
+@app_admin.route('/delete_catalog_product/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_catalog_product(id):
@@ -1620,7 +1589,7 @@ def delete_catalog_product(id):
         # Check if catalog product has branch products
         if catalog_product.branch_products:
             flash('Cannot delete this catalog product. It has associated branch products.', 'error')
-            return redirect(url_for('product_catalog'))
+            return redirect(url_for('app_admin.product_catalog'))
         
         # Delete associated image if exists
         if catalog_product.image_url:
@@ -1633,17 +1602,17 @@ def delete_catalog_product(id):
         db.session.commit()
         
         flash('Catalog product deleted successfully', 'success')
-        return redirect(url_for('product_catalog'))
+        return redirect(url_for('app_admin.product_catalog'))
     except IntegrityError as e:
         db.session.rollback()
         flash('Cannot delete this catalog product. It has associated branch products or other related records.', 'error')
-        return redirect(url_for('product_catalog'))
+        return redirect(url_for('app_admin.product_catalog'))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while deleting the catalog product. Please try again.', 'error')
-        return redirect(url_for('product_catalog'))
+        return redirect(url_for('app_admin.product_catalog'))
 
-@app.route('/get_catalog_product/<int:id>')
+@app_admin.route('/get_catalog_product/<int:id>')
 @login_required
 @role_required(['admin'])
 def get_catalog_product(id):
@@ -1657,7 +1626,7 @@ def get_catalog_product(id):
     })
 
 # Branch ProductCatalogs Routes
-@app.route('/add_branch_product', methods=['POST'])
+@app_admin.route('/add_branch_product', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def add_branch_product():
@@ -1672,7 +1641,7 @@ def add_branch_product():
     # Basic validation
     if not catalog_id or not branchid:
         flash('Catalog product and Branch are required', 'error')
-        return redirect(url_for('products', branch_id=branchid))
+        return redirect(url_for('app_admin.products', branch_id=branchid))
     
     # Check if branch product already exists for this catalog product and branch
     existing_branch_product = BranchProduct.query.filter_by(
@@ -1682,7 +1651,7 @@ def add_branch_product():
     
     if existing_branch_product:
         flash('This product already exists in this branch. Please edit the existing entry instead.', 'error')
-        return redirect(url_for('products', branch_id=branchid))
+        return redirect(url_for('app_admin.products', branch_id=branchid))
     
     # Convert empty strings to None
     buyingprice = float(buyingprice) if buyingprice else None
@@ -1711,9 +1680,9 @@ def add_branch_product():
     db.session.commit()
     
     flash('ProductCatalog added to branch successfully', 'success')
-    return redirect(url_for('branch_products', branch_id=branchid))
+    return redirect(url_for('app_admin.branch_products', branch_id=branchid))
 
-@app.route('/add_new_product_to_branch', methods=['POST'])
+@app_admin.route('/add_new_product_to_branch', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def add_new_product_to_branch():
@@ -1733,7 +1702,7 @@ def add_new_product_to_branch():
         # Basic validation
         if not name or not branchid:
             flash('Product name and branch are required', 'error')
-            return redirect(url_for('products', branch_id=branchid))
+            return redirect(url_for('app_admin.products', branch_id=branchid))
         
         # Check if product with same name and code already exists
         existing_product = ProductCatalog.query.filter(
@@ -1743,7 +1712,7 @@ def add_new_product_to_branch():
         
         if existing_product:
             flash('A product with this name and code already exists in the catalog', 'error')
-            return redirect(url_for('products', branch_id=branchid))
+            return redirect(url_for('app_admin.products', branch_id=branchid))
         
         # Handle image upload to Cloudinary
         image_url = None
@@ -1790,7 +1759,7 @@ def add_new_product_to_branch():
         if existing_branch_product:
             flash('This product already exists in this branch. Please edit the existing entry instead.', 'error')
             db.session.rollback()
-            return redirect(url_for('products', branch_id=branchid))
+            return redirect(url_for('app_admin.products', branch_id=branchid))
         
         # Create new branch product
         new_branch_product = BranchProduct(
@@ -1806,15 +1775,15 @@ def add_new_product_to_branch():
         db.session.commit()
         
         flash('New product created and added to branch successfully!', 'success')
-        return redirect(url_for('products', branch_id=branchid))
+        return redirect(url_for('app_admin.products', branch_id=branchid))
         
     except Exception as e:
         db.session.rollback()
         print(f"Error adding new product to branch: {str(e)}")
         flash('Error adding new product. Please try again.', 'error')
-        return redirect(url_for('products', branch_id=branchid))
+        return redirect(url_for('app_admin.products', branch_id=branchid))
 
-@app.route('/edit_branch_product/<int:id>', methods=['POST'])
+@app_admin.route('/edit_branch_product/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def edit_branch_product(id):
@@ -1840,9 +1809,9 @@ def edit_branch_product(id):
     db.session.commit()
     
     flash('Branch product updated successfully', 'success')
-    return redirect(url_for('products', branch_id=branch_product.branchid))
+    return redirect(url_for('app_admin.products', branch_id=branch_product.branchid))
 
-@app.route('/delete_branch_product/<int:id>', methods=['POST'])
+@app_admin.route('/delete_branch_product/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_branch_product(id):
@@ -1860,25 +1829,25 @@ def delete_branch_product(id):
         
         if order_items_count > 0 or stock_transactions_count > 0:
             flash('Cannot delete this branch product. It has associated orders or stock transactions.', 'error')
-            return redirect(url_for('products', branch_id=branch_id))
+            return redirect(url_for('app_admin.products', branch_id=branch_id))
         
         db.session.delete(branch_product)
         db.session.commit()
         
         flash('Branch product deleted successfully', 'success')
-        return redirect(url_for('products', branch_id=branch_id))
+        return redirect(url_for('app_admin.products', branch_id=branch_id))
     except IntegrityError as e:
         db.session.rollback()
         print(f"IntegrityError deleting branch product: {str(e)}")
         flash('Cannot delete this branch product. It has associated orders, stock transactions, or other related records.', 'error')
-        return redirect(url_for('products', branch_id=branch_id))
+        return redirect(url_for('app_admin.products', branch_id=branch_id))
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting branch product: {str(e)}")
         flash('An error occurred while deleting the branch product. Please try again.', 'error')
-        return redirect(url_for('products', branch_id=branch_id))
+        return redirect(url_for('app_admin.products', branch_id=branch_id))
 
-@app.route('/sales_performance')
+@app_admin.route('/sales_performance')
 @login_required
 @role_required(['admin'])
 def sales_performance():
@@ -2010,9 +1979,9 @@ def sales_performance():
     except Exception as e:
         print(f"Error loading sales performance: {str(e)}")
         flash('Error loading sales performance data. Please try again.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/salesperson_orders/<int:user_id>')
+@app_admin.route('/salesperson_orders/<int:user_id>')
 @login_required
 @role_required(['admin'])
 def salesperson_orders(user_id):
@@ -2037,7 +2006,7 @@ def salesperson_orders(user_id):
         salesperson = User.query.get(user_id)
         if not salesperson:
             flash('Salesperson not found.', 'error')
-            return redirect(url_for('sales_performance'))
+            return redirect(url_for('app_admin.sales_performance'))
         
         # Get orders for this salesperson with date filter
         orders_query = Order.query.filter(
@@ -2162,9 +2131,9 @@ def salesperson_orders(user_id):
     except Exception as e:
         print(f"Error loading salesperson orders: {str(e)}")
         flash('Error loading salesperson orders. Please try again.', 'error')
-        return redirect(url_for('sales_performance'))
+        return redirect(url_for('app_admin.sales_performance'))
 
-@app.route('/get_branch_product/<int:id>')
+@app_admin.route('/get_branch_product/<int:id>')
 @login_required
 @role_required(['admin'])
 def get_branch_product(id):
@@ -2180,7 +2149,7 @@ def get_branch_product(id):
         'catalog_product_name': branch_product.catalog_product.name if branch_product.catalog_product else None
     })
 
-@app.route('/get_catalog_products_for_branch')
+@app_admin.route('/get_catalog_products_for_branch')
 @login_required
 @role_required(['admin'])
 def get_catalog_products_for_branch():
@@ -2211,7 +2180,7 @@ def get_catalog_products_for_branch():
 
 # ProductCatalogs Routes (Legacy - to be removed later)
 # DEPRECATED: Legacy product route - use ProductCatalog instead
-# @app.route('/add_product', methods=['POST'])
+# @app_admin.route('/add_product', methods=['POST'])
 # @login_required
 # @role_required(['admin'])
 # def add_product():
@@ -2227,7 +2196,7 @@ def get_catalog_products_for_branch():
     # Basic validation
     if not name or not branchid:
         flash('Name and Branch are required', 'error')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
     
     # Handle file upload to Cloudinary
     image_url = None
@@ -2239,10 +2208,10 @@ def get_catalog_products_for_branch():
                 image_url = upload_to_cloudinary(file)
                 if not image_url:
                     flash('Failed to upload image. Please try again.', 'error')
-                    return redirect(url_for('products'))
+                    return redirect(url_for('app_admin.products'))
             except Exception as e:
                 flash(f'Error uploading image: {str(e)}', 'error')
-                return redirect(url_for('products'))
+                return redirect(url_for('app_admin.products'))
     
     # Convert empty strings to None
     buyingprice = int(buyingprice) if buyingprice else None
@@ -2268,10 +2237,10 @@ def get_catalog_products_for_branch():
     db.session.commit()
     
     flash('ProductCatalog added successfully', 'success')
-    return redirect(url_for('products'))
+    return redirect(url_for('app_admin.products'))
 
 # DEPRECATED: Legacy product route - use ProductCatalog instead
-# @app.route('/get_product/<int:id>')
+# @app_admin.route('/get_product/<int:id>')
 # @login_required
 # @role_required(['admin'])
 # def get_product(id):
@@ -2290,7 +2259,7 @@ def get_catalog_products_for_branch():
 #     })
 
 # DEPRECATED: Legacy product route - use ProductCatalog instead
-# @app.route('/edit_product/<int:id>', methods=['POST'])
+# @app_admin.route('/edit_product/<int:id>', methods=['POST'])
 # @login_required
 # @role_required(['admin'])
 # def edit_product(id):
@@ -2311,7 +2280,7 @@ def get_catalog_products_for_branch():
     # Basic validation
     if not product.name or not product.branchid:
         flash('Name and Branch are required', 'error')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
     
     # Handle file upload if a new image is provided
     if 'image' in request.files:
@@ -2326,19 +2295,19 @@ def get_catalog_products_for_branch():
                 image_url = upload_to_cloudinary(file)
                 if not image_url:
                     flash('Failed to upload new image. Please try again.', 'error')
-                    return redirect(url_for('products'))
+                    return redirect(url_for('app_admin.products'))
                 
                 product.image_url = image_url
             except Exception as e:
                 flash(f'Error uploading image: {str(e)}', 'error')
-                return redirect(url_for('products'))
+                return redirect(url_for('app_admin.products'))
     
     db.session.commit()
     
     flash('ProductCatalog updated successfully', 'success')
-    return redirect(url_for('products'))
+    return redirect(url_for('app_admin.products'))
 
-@app.route('/delete_product/<int:id>', methods=['POST'])
+@app_admin.route('/delete_product/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_product(id):
@@ -2348,7 +2317,7 @@ def delete_product(id):
         # Check if product has related branch products
         if product.branch_products:
             flash('Cannot delete this product. It is being used in one or more branches. Please remove it from all branches first.', 'error')
-            return redirect(url_for('products'))
+            return redirect(url_for('app_admin.products'))
         
         # Delete associated image if exists
         if product.image_url:
@@ -2361,19 +2330,19 @@ def delete_product(id):
         db.session.commit()
         
         flash('Product deleted successfully from catalog', 'success')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
     except IntegrityError as e:
         db.session.rollback()
         flash('Cannot delete this product. It has associated records that prevent deletion.', 'error')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting product: {str(e)}")
         flash('An error occurred while deleting the product. Please try again.', 'error')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
 
 # Stock Management Routes
-@app.route('/add_stock/<int:branch_product_id>', methods=['POST'])
+@app_admin.route('/add_stock/<int:branch_product_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def add_stock(branch_product_id):
@@ -2386,7 +2355,7 @@ def add_stock(branch_product_id):
     # Basic validation
     if not quantity or not quantity.isdigit() or int(quantity) <= 0:
         flash('Please enter a valid positive quantity', 'error')
-        return redirect(url_for('products', branch_id=branch_product.branchid))
+        return redirect(url_for('app_admin.products', branch_id=branch_product.branchid))
     
     quantity = int(quantity)
     previous_stock = branch_product.stock or 0
@@ -2411,9 +2380,9 @@ def add_stock(branch_product_id):
     
     product_name = branch_product.catalog_product.name if branch_product.catalog_product else 'Unknown ProductCatalog'
     flash(f'Successfully added {quantity} units to {product_name}. New stock: {new_stock}', 'success')
-    return redirect(url_for('products', branch_id=branch_product.branchid))
+    return redirect(url_for('app_admin.products', branch_id=branch_product.branchid))
 
-@app.route('/remove_stock/<int:branch_product_id>', methods=['POST'])
+@app_admin.route('/remove_stock/<int:branch_product_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def remove_stock(branch_product_id):
@@ -2426,7 +2395,7 @@ def remove_stock(branch_product_id):
     # Basic validation
     if not quantity or not quantity.isdigit() or int(quantity) <= 0:
         flash('Please enter a valid positive quantity', 'error')
-        return redirect(url_for('products', branch_id=branch_product.branchid))
+        return redirect(url_for('app_admin.products', branch_id=branch_product.branchid))
     
     quantity = int(quantity)
     previous_stock = branch_product.stock or 0
@@ -2434,7 +2403,7 @@ def remove_stock(branch_product_id):
     # Check if we have enough stock
     if previous_stock < quantity:
         flash(f'Insufficient stock. Current stock: {previous_stock}, trying to remove: {quantity}', 'error')
-        return redirect(url_for('products', branch_id=branch_product.branchid))
+        return redirect(url_for('app_admin.products', branch_id=branch_product.branchid))
     
     new_stock = previous_stock - quantity
     
@@ -2457,9 +2426,9 @@ def remove_stock(branch_product_id):
     
     product_name = branch_product.catalog_product.name if branch_product.catalog_product else 'Unknown ProductCatalog'
     flash(f'Successfully removed {quantity} units from {product_name}. New stock: {new_stock}', 'success')
-    return redirect(url_for('products', branch_id=branch_product.branchid))
+    return redirect(url_for('app_admin.products', branch_id=branch_product.branchid))
 
-@app.route('/stock_history/<int:branch_product_id>')
+@app_admin.route('/stock_history/<int:branch_product_id>')
 @login_required
 @role_required(['admin'])
 def stock_history(branch_product_id):
@@ -2472,7 +2441,7 @@ def stock_history(branch_product_id):
     
     return render_template('stock_history.html', branch_product=branch_product, transactions=transactions)
 
-@app.route('/export_stock_history_pdf/<int:branch_product_id>')
+@app_admin.route('/export_stock_history_pdf/<int:branch_product_id>')
 @login_required
 @role_required(['admin'])
 def export_stock_history_pdf(branch_product_id):
@@ -2667,7 +2636,7 @@ def export_stock_history_pdf(branch_product_id):
     
     return response
 
-@app.route('/toggle_display/<int:branch_product_id>', methods=['POST'])
+@app_admin.route('/toggle_display/<int:branch_product_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def toggle_display(branch_product_id):
@@ -2679,14 +2648,14 @@ def toggle_display(branch_product_id):
         status = "visible" if branch_product.display else "hidden"
         product_name = branch_product.catalog_product.name if branch_product.catalog_product else 'Unknown ProductCatalog'
         flash(f'ProductCatalog "{product_name}" is now {status} in customer app', 'success')
-        return redirect(url_for('products', branch_id=branch_product.branchid))
+        return redirect(url_for('app_admin.products', branch_id=branch_product.branchid))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while updating product display status', 'error')
-        return redirect(url_for('products', branch_id=branch_product.branchid))
+        return redirect(url_for('app_admin.products', branch_id=branch_product.branchid))
 
 # User Management Routes
-@app.route('/users')
+@app_admin.route('/users')
 @login_required
 @role_required(['admin'])
 def users():
@@ -2715,9 +2684,9 @@ def users():
         print(f"Error in users route: {e}")
         db.session.rollback()
         flash('An error occurred while loading users. Please try again.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/add_user', methods=['GET', 'POST'])
+@app_admin.route('/add_user', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def add_user():
@@ -2734,13 +2703,13 @@ def add_user():
         # Basic validation
         if not email or not firstname or not lastname or not password or not role:
             flash('All fields are required', 'error')
-            return redirect(url_for('add_user'))
+            return redirect(url_for('app_admin.add_user'))
         
         # Check if email already exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
             flash('Email already exists. Please use a different email.', 'error')
-            return redirect(url_for('add_user'))
+            return redirect(url_for('app_admin.add_user'))
         
         # Create new user
         new_user = User(
@@ -2767,17 +2736,17 @@ def add_user():
             db.session.add(new_user)
             db.session.commit()
             flash('User added successfully', 'success')
-            return redirect(url_for('users'))
+            return redirect(url_for('app_admin.users'))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while adding the user. Please try again.', 'error')
-            return redirect(url_for('add_user'))
+            return redirect(url_for('app_admin.add_user'))
     
     # Get all branches for the form
     branches = Branch.query.order_by(Branch.name).all()
     return render_template('add_user.html', branches=branches)
 
-@app.route('/edit_user/<int:id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_user/<int:id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_user(id):
@@ -2796,13 +2765,13 @@ def edit_user(id):
         # Basic validation
         if not email or not firstname or not lastname or not role:
             flash('Email, First Name, Last Name, and Role are required', 'error')
-            return redirect(url_for('edit_user', id=id))
+            return redirect(url_for('app_admin.edit_user', id=id))
         
         # Check if email already exists (excluding current user)
         existing_user = User.query.filter_by(email=email).first()
         if existing_user and existing_user.id != id:
             flash('Email already exists. Please use a different email.', 'error')
-            return redirect(url_for('edit_user', id=id))
+            return redirect(url_for('app_admin.edit_user', id=id))
         
         # Update user
         user.email = email
@@ -2828,17 +2797,17 @@ def edit_user(id):
         try:
             db.session.commit()
             flash('User updated successfully', 'success')
-            return redirect(url_for('users'))
+            return redirect(url_for('app_admin.users'))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while updating the user. Please try again.', 'error')
-            return redirect(url_for('edit_user', id=id))
+            return redirect(url_for('app_admin.edit_user', id=id))
     
     # Get all branches for the form
     branches = Branch.query.order_by(Branch.name).all()
     return render_template('edit_user.html', user=user, branches=branches)
 
-@app.route('/delete_user/<int:id>', methods=['POST'])
+@app_admin.route('/delete_user/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_user(id):
@@ -2848,29 +2817,29 @@ def delete_user(id):
         # Prevent deleting the current user
         if user.id == current_user.id:
             flash('You cannot delete your own account.', 'error')
-            return redirect(url_for('users'))
+            return redirect(url_for('app_admin.users'))
         
         # Check if user has related records
         if user.orders or user.stock_transactions or user.payments:
             flash('Cannot delete this user. They have associated orders, stock transactions, or payments.', 'error')
-            return redirect(url_for('users'))
+            return redirect(url_for('app_admin.users'))
         
         db.session.delete(user)
         db.session.commit()
         
         flash('User deleted successfully', 'success')
-        return redirect(url_for('users'))
+        return redirect(url_for('app_admin.users'))
     except IntegrityError as e:
         db.session.rollback()
         flash('Cannot delete this user. They have associated data that prevents deletion.', 'error')
-        return redirect(url_for('users'))
+        return redirect(url_for('app_admin.users'))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while deleting the user. Please try again.', 'error')
-        return redirect(url_for('users'))
+        return redirect(url_for('app_admin.users'))
 
 # Orders Routes
-@app.route('/orders')
+@app_admin.route('/orders')
 @login_required
 @role_required(['admin'])
 def orders():
@@ -3125,9 +3094,9 @@ def orders():
         print(f"Error in orders route: {e}")
         db.session.rollback()
         flash('An error occurred while loading orders. Please try again.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/order_details/<int:order_id>')
+@app_admin.route('/order_details/<int:order_id>')
 @login_required
 @role_required(['admin'])
 def order_details(order_id):
@@ -3190,9 +3159,9 @@ def order_details(order_id):
     except Exception as e:
         print(f"Error in order details route: {e}")
         flash('An error occurred while loading order details.', 'error')
-        return redirect(url_for('orders'))
+        return redirect(url_for('app_admin.orders'))
 
-@app.route('/approve_order/<int:order_id>', methods=['POST'])
+@app_admin.route('/approve_order/<int:order_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def approve_order(order_id):
@@ -3203,13 +3172,13 @@ def approve_order(order_id):
         db.session.commit()
         
         flash(f'Order #{order.id} has been approved successfully.', 'success')
-        return redirect(url_for('orders'))
+        return redirect(url_for('app_admin.orders'))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while approving the order.', 'error')
-        return redirect(url_for('orders'))
+        return redirect(url_for('app_admin.orders'))
 
-@app.route('/reject_order/<int:order_id>', methods=['POST'])
+@app_admin.route('/reject_order/<int:order_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def reject_order(order_id):
@@ -3220,14 +3189,14 @@ def reject_order(order_id):
         db.session.commit()
         
         flash(f'Order #{order.id} has been rejected.', 'success')
-        return redirect(url_for('orders'))
+        return redirect(url_for('app_admin.orders'))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while rejecting the order.', 'error')
-        return redirect(url_for('orders'))
+        return redirect(url_for('app_admin.orders'))
 
 # Profit & Loss Routes
-@app.route('/profit_loss')
+@app_admin.route('/profit_loss')
 @login_required
 @role_required(['admin'])
 def profit_loss():
@@ -3385,9 +3354,9 @@ def profit_loss():
     except Exception as e:
         print(f"Error in profit_loss route: {e}")
         flash('An error occurred while loading profit & loss data.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/balance_sheet')
+@app_admin.route('/balance_sheet')
 @login_required
 @role_required(['admin'])
 def balance_sheet():
@@ -3496,10 +3465,10 @@ def balance_sheet():
     except Exception as e:
         print(f"Error in balance_sheet route: {e}")
         flash('An error occurred while loading balance sheet data.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
 # Branch Management Routes
-@app.route('/branches')
+@app_admin.route('/branches')
 @login_required
 @role_required(['admin'])
 def branches():
@@ -3557,9 +3526,9 @@ def branches():
         print(f"Error in branches route: {e}")
         db.session.rollback()
         flash('An error occurred while loading branches. Please try again.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/debug_payment_status')
+@app_admin.route('/debug_payment_status')
 @login_required
 @role_required(['admin'])
 def debug_payment_status():
@@ -3605,7 +3574,7 @@ def debug_payment_status():
         print(f"Error in debug route: {e}")
         return jsonify({'error': str(e)})
 
-@app.route('/debug_branches_revenue')
+@app_admin.route('/debug_branches_revenue')
 @login_required
 @role_required(['admin'])
 def debug_branches_revenue():
@@ -3659,7 +3628,7 @@ def debug_branches_revenue():
         print(f"Error in debug branches revenue route: {e}")
         return jsonify({'error': str(e)})
 
-@app.route('/add_branch', methods=['GET', 'POST'])
+@app_admin.route('/add_branch', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def add_branch():
@@ -3671,13 +3640,13 @@ def add_branch():
         # Basic validation
         if not name or not location:
             flash('Branch name and location are required', 'error')
-            return redirect(url_for('add_branch'))
+            return redirect(url_for('app_admin.add_branch'))
         
         # Check if branch name already exists
         existing_branch = Branch.query.filter_by(name=name).first()
         if existing_branch:
             flash('Branch name already exists. Please use a different name.', 'error')
-            return redirect(url_for('add_branch'))
+            return redirect(url_for('app_admin.add_branch'))
         
         # Create new branch
         new_branch = Branch(
@@ -3689,15 +3658,15 @@ def add_branch():
             db.session.add(new_branch)
             db.session.commit()
             flash('Branch added successfully', 'success')
-            return redirect(url_for('branches'))
+            return redirect(url_for('app_admin.branches'))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while adding the branch. Please try again.', 'error')
-            return redirect(url_for('add_branch'))
+            return redirect(url_for('app_admin.add_branch'))
     
     return render_template('add_branch.html')
 
-@app.route('/edit_branch/<int:id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_branch/<int:id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_branch(id):
@@ -3711,13 +3680,13 @@ def edit_branch(id):
         # Basic validation
         if not name or not location:
             flash('Branch name and location are required', 'error')
-            return redirect(url_for('edit_branch', id=id))
+            return redirect(url_for('app_admin.edit_branch', id=id))
         
         # Check if branch name already exists (excluding current branch)
         existing_branch = Branch.query.filter_by(name=name).first()
         if existing_branch and existing_branch.id != id:
             flash('Branch name already exists. Please use a different name.', 'error')
-            return redirect(url_for('edit_branch', id=id))
+            return redirect(url_for('app_admin.edit_branch', id=id))
         
         # Update branch
         branch.name = name
@@ -3726,15 +3695,15 @@ def edit_branch(id):
         try:
             db.session.commit()
             flash('Branch updated successfully', 'success')
-            return redirect(url_for('branches'))
+            return redirect(url_for('app_admin.branches'))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while updating the branch. Please try again.', 'error')
-            return redirect(url_for('edit_branch', id=id))
+            return redirect(url_for('app_admin.edit_branch', id=id))
     
     return render_template('edit_branch.html', branch=branch)
 
-@app.route('/delete_branch/<int:id>', methods=['POST'])
+@app_admin.route('/delete_branch/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_branch(id):
@@ -3744,23 +3713,23 @@ def delete_branch(id):
         # Check if branch has related records
         if branch.branch_products or branch.orders:
             flash('Cannot delete this branch. It has associated products or orders.', 'error')
-            return redirect(url_for('branches'))
+            return redirect(url_for('app_admin.branches'))
         
         db.session.delete(branch)
         db.session.commit()
         
         flash('Branch deleted successfully', 'success')
-        return redirect(url_for('branches'))
+        return redirect(url_for('app_admin.branches'))
     except IntegrityError as e:
         db.session.rollback()
         flash('Cannot delete this branch. It has associated data that prevents deletion.', 'error')
-        return redirect(url_for('branches'))
+        return redirect(url_for('app_admin.branches'))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while deleting the branch. Please try again.', 'error')
-        return redirect(url_for('branches'))
+        return redirect(url_for('app_admin.branches'))
 
-@app.route('/branch_details/<int:branch_id>')
+@app_admin.route('/branch_details/<int:branch_id>')
 @login_required
 @role_required(['admin'])
 def branch_details(branch_id):
@@ -3822,10 +3791,10 @@ def branch_details(branch_id):
     except Exception as e:
         print(f"Error in branch details route: {e}")
         flash('An error occurred while loading branch details.', 'error')
-        return redirect(url_for('branches'))
+        return redirect(url_for('app_admin.branches'))
 
 # Category Management Routes
-@app.route('/categories')
+@app_admin.route('/categories')
 @login_required
 @role_required(['admin'])
 def categories():
@@ -3955,9 +3924,9 @@ def categories():
         print(f"Error in categories route: {e}")
         db.session.rollback()
         flash('An error occurred while loading categories. Please try again.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/category_details/<int:category_id>')
+@app_admin.route('/category_details/<int:category_id>')
 @login_required
 @role_required(['admin'])
 def category_details(category_id):
@@ -4005,10 +3974,10 @@ def category_details(category_id):
     except Exception as e:
         print(f"Error in category details route: {e}")
         flash('An error occurred while loading category details.', 'error')
-        return redirect(url_for('categories'))
+        return redirect(url_for('app_admin.categories'))
 
 # Subcategory Management Routes
-@app.route('/subcategories')
+@app_admin.route('/subcategories')
 @login_required
 @role_required(['admin'])
 def subcategories():
@@ -4035,9 +4004,9 @@ def subcategories():
         print(f"Error in subcategories route: {e}")
         db.session.rollback()
         flash('An error occurred while loading subcategories. Please try again.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/add_subcategory', methods=['GET', 'POST'])
+@app_admin.route('/add_subcategory', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def add_subcategory():
@@ -4048,7 +4017,7 @@ def add_subcategory():
         
         if not name or not category_id:
             flash('Subcategory name and parent category are required', 'error')
-            return redirect(url_for('add_subcategory'))
+            return redirect(url_for('app_admin.add_subcategory'))
         
         # Check if subcategory name already exists in the same category
         existing_subcategory = SubCategory.query.filter_by(
@@ -4056,7 +4025,7 @@ def add_subcategory():
         ).first()
         if existing_subcategory:
             flash('Subcategory name already exists in this category. Please use a different name.', 'error')
-            return redirect(url_for('add_subcategory'))
+            return redirect(url_for('app_admin.add_subcategory'))
         
         # Handle image upload
         image_url = None
@@ -4067,10 +4036,10 @@ def add_subcategory():
                     image_url = upload_to_cloudinary(file)
                     if not image_url:
                         flash('Failed to upload image. Please try again.', 'error')
-                        return redirect(url_for('add_subcategory'))
+                        return redirect(url_for('app_admin.add_subcategory'))
                 except Exception as e:
                     flash(f'Error uploading image: {str(e)}', 'error')
-                    return redirect(url_for('add_subcategory'))
+                    return redirect(url_for('app_admin.add_subcategory'))
         
         new_subcategory = SubCategory(
             name=name,
@@ -4083,17 +4052,17 @@ def add_subcategory():
             db.session.add(new_subcategory)
             db.session.commit()
             flash('Subcategory added successfully', 'success')
-            return redirect(url_for('subcategories'))
+            return redirect(url_for('app_admin.subcategories'))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while adding the subcategory. Please try again.', 'error')
-            return redirect(url_for('add_subcategory'))
+            return redirect(url_for('app_admin.add_subcategory'))
     
     # Get all categories for the dropdown
     categories = Category.query.order_by(Category.name).all()
     return render_template('add_subcategory.html', categories=categories)
 
-@app.route('/edit_subcategory/<int:id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_subcategory/<int:id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_subcategory(id):
@@ -4106,7 +4075,7 @@ def edit_subcategory(id):
         
         if not name or not category_id:
             flash('Subcategory name and parent category are required', 'error')
-            return redirect(url_for('edit_subcategory', id=id))
+            return redirect(url_for('app_admin.edit_subcategory', id=id))
         
         # Check if subcategory name already exists in the same category (excluding current)
         existing_subcategory = SubCategory.query.filter_by(
@@ -4114,7 +4083,7 @@ def edit_subcategory(id):
         ).first()
         if existing_subcategory and existing_subcategory.id != id:
             flash('Subcategory name already exists in this category. Please use a different name.', 'error')
-            return redirect(url_for('edit_subcategory', id=id))
+            return redirect(url_for('app_admin.edit_subcategory', id=id))
         
         # Handle image upload
         if 'image' in request.files:
@@ -4130,7 +4099,7 @@ def edit_subcategory(id):
                         subcategory.image_url = image_url
                 except Exception as e:
                     flash(f'Error uploading image: {str(e)}', 'error')
-                    return redirect(url_for('edit_subcategory', id=id))
+                    return redirect(url_for('app_admin.edit_subcategory', id=id))
         
         # Update subcategory
         subcategory.name = name
@@ -4140,17 +4109,17 @@ def edit_subcategory(id):
         try:
             db.session.commit()
             flash('Subcategory updated successfully', 'success')
-            return redirect(url_for('subcategories'))
+            return redirect(url_for('app_admin.subcategories'))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while updating the subcategory. Please try again.', 'error')
-            return redirect(url_for('edit_subcategory', id=id))
+            return redirect(url_for('app_admin.edit_subcategory', id=id))
     
     # Get all categories for the dropdown
     categories = Category.query.order_by(Category.name).all()
     return render_template('edit_subcategory.html', subcategory=subcategory, categories=categories)
 
-@app.route('/delete_subcategory/<int:id>', methods=['POST'])
+@app_admin.route('/delete_subcategory/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_subcategory(id):
@@ -4160,7 +4129,7 @@ def delete_subcategory(id):
         # Check if subcategory has related products
         if subcategory.products:
             flash('Cannot delete this subcategory. It has associated products.', 'error')
-            return redirect(url_for('subcategories'))
+            return redirect(url_for('app_admin.subcategories'))
         
         # Delete image from Cloudinary if exists
         if subcategory.image_url:
@@ -4170,17 +4139,17 @@ def delete_subcategory(id):
         db.session.commit()
         
         flash('Subcategory deleted successfully', 'success')
-        return redirect(url_for('subcategories'))
+        return redirect(url_for('app_admin.subcategories'))
     except IntegrityError as e:
         db.session.rollback()
         flash('Cannot delete this subcategory. It has associated data that prevents deletion.', 'error')
-        return redirect(url_for('subcategories'))
+        return redirect(url_for('app_admin.subcategories'))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while deleting the subcategory. Please try again.', 'error')
-        return redirect(url_for('subcategories'))
+        return redirect(url_for('app_admin.subcategories'))
 
-@app.route('/subcategory_details/<int:subcategory_id>')
+@app_admin.route('/subcategory_details/<int:subcategory_id>')
 @login_required
 @role_required(['admin'])
 def subcategory_details(subcategory_id):
@@ -4218,10 +4187,10 @@ def subcategory_details(subcategory_id):
     except Exception as e:
         print(f"Error in subcategory details route: {e}")
         flash('An error occurred while loading subcategory details.', 'error')
-        return redirect(url_for('subcategories'))
+        return redirect(url_for('app_admin.subcategories'))
 
 # ProductCatalog Description Management Routes
-@app.route('/product_descriptions/<int:product_id>')
+@app_admin.route('/product_descriptions/<int:product_id>')
 @login_required
 @role_required(['admin'])
 def product_descriptions(product_id):
@@ -4241,9 +4210,9 @@ def product_descriptions(product_id):
     except Exception as e:
         print(f"Error in product descriptions route: {e}")
         flash('An error occurred while loading product descriptions.', 'error')
-        return redirect(url_for('products'))
+        return redirect(url_for('app_admin.products'))
 
-@app.route('/add_product_description/<int:product_id>', methods=['GET', 'POST'])
+@app_admin.route('/add_product_description/<int:product_id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def add_product_description(product_id):
@@ -4258,7 +4227,7 @@ def add_product_description(product_id):
         
         if not title or not content:
             flash('Title and content are required', 'error')
-            return redirect(url_for('add_product_description', product_id=product_id))
+            return redirect(url_for('app_admin.add_product_description', product_id=product_id))
         
         new_description = ProductDescription(
             product_id=product_id,
@@ -4273,15 +4242,15 @@ def add_product_description(product_id):
             db.session.add(new_description)
             db.session.commit()
             flash('ProductCatalog description added successfully', 'success')
-            return redirect(url_for('product_descriptions', product_id=product_id))
+            return redirect(url_for('app_admin.product_descriptions', product_id=product_id))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while adding the description. Please try again.', 'error')
-            return redirect(url_for('add_product_description', product_id=product_id))
+            return redirect(url_for('app_admin.add_product_description', product_id=product_id))
     
     return render_template('add_product_description.html', product=product)
 
-@app.route('/edit_product_description/<int:description_id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_product_description/<int:description_id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_product_description(description_id):
@@ -4297,7 +4266,7 @@ def edit_product_description(description_id):
         
         if not title or not content:
             flash('Title and content are required', 'error')
-            return redirect(url_for('edit_product_description', description_id=description_id))
+            return redirect(url_for('app_admin.edit_product_description', description_id=description_id))
         
         description.title = title
         description.content = content
@@ -4309,15 +4278,15 @@ def edit_product_description(description_id):
         try:
             db.session.commit()
             flash('ProductCatalog description updated successfully', 'success')
-            return redirect(url_for('product_descriptions', product_id=description.product_id))
+            return redirect(url_for('app_admin.product_descriptions', product_id=description.product_id))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while updating the description. Please try again.', 'error')
-            return redirect(url_for('edit_product_description', description_id=description_id))
+            return redirect(url_for('app_admin.edit_product_description', description_id=description_id))
     
     return render_template('edit_product_description.html', description=description)
 
-@app.route('/delete_product_description/<int:description_id>', methods=['POST'])
+@app_admin.route('/delete_product_description/<int:description_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_product_description(description_id):
@@ -4329,15 +4298,15 @@ def delete_product_description(description_id):
         db.session.commit()
         
         flash('ProductCatalog description deleted successfully', 'success')
-        return redirect(url_for('product_descriptions', product_id=product_id))
+        return redirect(url_for('app_admin.product_descriptions', product_id=product_id))
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while deleting the description. Please try again.', 'error')
-        return redirect(url_for('product_descriptions', product_id=description.product_id))
+        return redirect(url_for('app_admin.product_descriptions', product_id=description.product_id))
 
 
 # Expense Management Routes
-@app.route('/expenses')
+@app_admin.route('/expenses')
 @login_required
 @role_required(['admin'])
 def expenses():
@@ -4384,7 +4353,7 @@ def expenses():
                          date_to=date_to)
 
 
-@app.route('/add_expense', methods=['GET', 'POST'])
+@app_admin.route('/add_expense', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def add_expense():
@@ -4401,7 +4370,7 @@ def add_expense():
             # Validation
             if not all([title, amount, category, expense_date]):
                 flash('Please fill in all required fields.', 'danger')
-                return redirect(url_for('add_expense'))
+                return redirect(url_for('app_admin.add_expense'))
             
             # Handle receipt upload
             receipt_url = None
@@ -4427,17 +4396,17 @@ def add_expense():
             db.session.commit()
             
             flash('Expense added successfully!', 'success')
-            return redirect(url_for('expenses'))
+            return redirect(url_for('app_admin.expenses'))
             
         except Exception as e:
             db.session.rollback()
             flash(f'Error adding expense: {str(e)}', 'danger')
-            return redirect(url_for('add_expense'))
+            return redirect(url_for('app_admin.add_expense'))
     
     return render_template('add_expense.html')
 
 
-@app.route('/edit_expense/<int:id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_expense/<int:id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_expense(id):
@@ -4464,7 +4433,7 @@ def edit_expense(id):
             
             db.session.commit()
             flash('Expense updated successfully!', 'success')
-            return redirect(url_for('expenses'))
+            return redirect(url_for('app_admin.expenses'))
             
         except Exception as e:
             db.session.rollback()
@@ -4477,7 +4446,7 @@ def edit_expense(id):
     return render_template('edit_expense.html', expense=expense)
 
 
-@app.route('/approve_expense/<int:id>', methods=['POST'])
+@app_admin.route('/approve_expense/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def approve_expense(id):
@@ -4496,10 +4465,10 @@ def approve_expense(id):
         db.session.rollback()
         flash(f'Error approving expense: {str(e)}', 'danger')
     
-    return redirect(url_for('expenses'))
+    return redirect(url_for('app_admin.expenses'))
 
 
-@app.route('/reject_expense/<int:id>', methods=['POST'])
+@app_admin.route('/reject_expense/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def reject_expense(id):
@@ -4518,10 +4487,10 @@ def reject_expense(id):
         db.session.rollback()
         flash(f'Error rejecting expense: {str(e)}', 'danger')
     
-    return redirect(url_for('expenses'))
+    return redirect(url_for('app_admin.expenses'))
 
 
-@app.route('/delete_expense/<int:id>', methods=['POST'])
+@app_admin.route('/delete_expense/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_expense(id):
@@ -4540,10 +4509,10 @@ def delete_expense(id):
         db.session.rollback()
         flash(f'Error deleting expense: {str(e)}', 'danger')
     
-    return redirect(url_for('expenses'))
+    return redirect(url_for('app_admin.expenses'))
 
 
-@app.route('/expense_details/<int:id>')
+@app_admin.route('/expense_details/<int:id>')
 @login_required
 @role_required(['admin'])
 def expense_details(id):
@@ -4556,7 +4525,7 @@ def expense_details(id):
     return render_template('expense_details.html', expense=expense)
 
 # Supplier Management Routes
-@app.route('/suppliers')
+@app_admin.route('/suppliers')
 @login_required
 @role_required(['admin'])
 def suppliers():
@@ -4596,9 +4565,9 @@ def suppliers():
     except Exception as e:
         print(f"Error in suppliers route: {e}")
         flash('An error occurred while loading suppliers.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/add_supplier', methods=['GET', 'POST'])
+@app_admin.route('/add_supplier', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def add_supplier():
@@ -4617,7 +4586,7 @@ def add_supplier():
             
             if not name:
                 flash('Supplier name is required', 'error')
-                return redirect(url_for('add_supplier'))
+                return redirect(url_for('app_admin.add_supplier'))
             
             # Convert credit_limit to decimal if provided
             credit_limit_decimal = None
@@ -4626,7 +4595,7 @@ def add_supplier():
                     credit_limit_decimal = float(credit_limit)
                 except ValueError:
                     flash('Invalid credit limit amount', 'error')
-                    return redirect(url_for('add_supplier'))
+                    return redirect(url_for('app_admin.add_supplier'))
             
             new_supplier = Supplier(
                 name=name,
@@ -4645,16 +4614,16 @@ def add_supplier():
             db.session.commit()
             
             flash('Supplier added successfully', 'success')
-            return redirect(url_for('suppliers'))
+            return redirect(url_for('app_admin.suppliers'))
         except Exception as e:
             db.session.rollback()
             print(f"Error adding supplier: {e}")
             flash('An error occurred while adding supplier.', 'error')
-            return redirect(url_for('add_supplier'))
+            return redirect(url_for('app_admin.add_supplier'))
     
     return render_template('add_supplier.html')
 
-@app.route('/edit_supplier/<int:id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_supplier/<int:id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_supplier(id):
@@ -4675,7 +4644,7 @@ def edit_supplier(id):
             
             if not name:
                 flash('Supplier name is required', 'error')
-                return redirect(url_for('edit_supplier', id=id))
+                return redirect(url_for('app_admin.edit_supplier', id=id))
             
             # Convert credit_limit to decimal if provided
             credit_limit_decimal = None
@@ -4684,7 +4653,7 @@ def edit_supplier(id):
                     credit_limit_decimal = float(credit_limit)
                 except ValueError:
                     flash('Invalid credit limit amount', 'error')
-                    return redirect(url_for('edit_supplier', id=id))
+                    return redirect(url_for('app_admin.edit_supplier', id=id))
             
             supplier.name = name
             supplier.contact_person = contact_person
@@ -4699,16 +4668,16 @@ def edit_supplier(id):
             
             db.session.commit()
             flash('Supplier updated successfully', 'success')
-            return redirect(url_for('suppliers'))
+            return redirect(url_for('app_admin.suppliers'))
         except Exception as e:
             db.session.rollback()
             print(f"Error updating supplier: {e}")
             flash('An error occurred while updating supplier.', 'error')
-            return redirect(url_for('edit_supplier', id=id))
+            return redirect(url_for('app_admin.edit_supplier', id=id))
     
     return render_template('edit_supplier.html', supplier=supplier)
 
-@app.route('/delete_supplier/<int:id>', methods=['POST'])
+@app_admin.route('/delete_supplier/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_supplier(id):
@@ -4718,20 +4687,20 @@ def delete_supplier(id):
         # Check if supplier has purchase orders
         if supplier.purchase_orders:
             flash('Cannot delete supplier with associated purchase orders', 'error')
-            return redirect(url_for('suppliers'))
+            return redirect(url_for('app_admin.suppliers'))
         
         db.session.delete(supplier)
         db.session.commit()
         flash('Supplier deleted successfully', 'success')
-        return redirect(url_for('suppliers'))
+        return redirect(url_for('app_admin.suppliers'))
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting supplier: {e}")
         flash('An error occurred while deleting supplier.', 'error')
-        return redirect(url_for('suppliers'))
+        return redirect(url_for('app_admin.suppliers'))
 
 # Purchase Order Routes
-@app.route('/purchase_orders')
+@app_admin.route('/purchase_orders')
 @login_required
 @role_required(['admin'])
 def purchase_orders():
@@ -4794,9 +4763,9 @@ def purchase_orders():
     except Exception as e:
         print(f"Error in purchase_orders route: {e}")
         flash('An error occurred while loading purchase orders.', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('app_admin.index'))
 
-@app.route('/add_purchase_order', methods=['GET', 'POST'])
+@app_admin.route('/add_purchase_order', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def add_purchase_order():
@@ -4810,7 +4779,7 @@ def add_purchase_order():
             
             if not supplier_id or not branch_id or not order_date:
                 flash('Supplier, Branch, and Order Date are required', 'error')
-                return redirect(url_for('add_purchase_order'))
+                return redirect(url_for('app_admin.add_purchase_order'))
             
             # Generate PO number
             today = datetime.now(EAT)
@@ -4854,12 +4823,12 @@ def add_purchase_order():
                 db.session.commit()
             
             flash('Purchase Order created successfully with items', 'success')
-            return redirect(url_for('edit_purchase_order', id=new_po.id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=new_po.id))
         except Exception as e:
             db.session.rollback()
             print(f"Error creating purchase order: {e}")
             flash('An error occurred while creating purchase order.', 'error')
-            return redirect(url_for('add_purchase_order'))
+            return redirect(url_for('app_admin.add_purchase_order'))
     
     suppliers = Supplier.query.filter_by(is_active=True).order_by(Supplier.name).all()
     branches = Branch.query.all()
@@ -4870,7 +4839,7 @@ def add_purchase_order():
                          branches=branches,
                          products=products)
 
-@app.route('/edit_purchase_order/<int:id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_purchase_order/<int:id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_purchase_order(id):
@@ -4884,7 +4853,7 @@ def edit_purchase_order(id):
         if not po:
             print(f"❌ Purchase Order with ID {id} not found in database")
             flash(f'Purchase Order with ID {id} not found.', 'error')
-            return redirect(url_for('purchase_orders'))
+            return redirect(url_for('app_admin.purchase_orders'))
         
         print(f"✅ Found Purchase Order: {po.po_number} (ID: {po.id})")
         print(f"✅ PO Status: {po.status}")
@@ -4911,7 +4880,7 @@ def edit_purchase_order(id):
                 if not supplier_id or not branch_id or not order_date:
                     print(f"❌ Missing required fields")
                     flash('Supplier, Branch, and Order Date are required', 'error')
-                    return redirect(url_for('edit_purchase_order', id=id))
+                    return redirect(url_for('app_admin.edit_purchase_order', id=id))
                 
                 po.supplier_id = supplier_id
                 po.branch_id = branch_id
@@ -4928,7 +4897,7 @@ def edit_purchase_order(id):
                 db.session.commit()
                 print(f"✅ Purchase Order updated successfully")
                 flash('Purchase Order updated successfully', 'success')
-                return redirect(url_for('purchase_orders'))
+                return redirect(url_for('app_admin.purchase_orders'))
             except Exception as e:
                 db.session.rollback()
                 print(f"❌ Error updating purchase order: {str(e)}")
@@ -4937,7 +4906,7 @@ def edit_purchase_order(id):
                 print(f"❌ Full traceback:")
                 traceback.print_exc()
                 flash(f'An error occurred while updating purchase order: {str(e)}', 'error')
-                return redirect(url_for('edit_purchase_order', id=id))
+                return redirect(url_for('app_admin.edit_purchase_order', id=id))
         
         # GET request - prepare data for template
         try:
@@ -4953,7 +4922,7 @@ def edit_purchase_order(id):
             
             # Check if template exists
             import os
-            template_path = os.path.join(app.template_folder, 'edit_purchase_order.html')
+            template_path = os.path.join(app_admin.template_folder, 'edit_purchase_order.html')
             if os.path.exists(template_path):
                 print(f"✅ Template file exists: {template_path}")
             else:
@@ -4994,7 +4963,7 @@ def edit_purchase_order(id):
             print(f"❌ Full traceback:")
             traceback.print_exc()
             flash(f'An error occurred while loading the page: {str(e)}', 'error')
-            return redirect(url_for('purchase_orders'))
+            return redirect(url_for('app_admin.purchase_orders'))
             
     except Exception as e:
         print(f"❌ Critical error in edit_purchase_order route: {str(e)}")
@@ -5003,9 +4972,9 @@ def edit_purchase_order(id):
         print(f"❌ Full traceback:")
         traceback.print_exc()
         flash(f'A critical error occurred: {str(e)}', 'error')
-        return redirect(url_for('purchase_orders'))
+        return redirect(url_for('app_admin.purchase_orders'))
 
-@app.route('/test_db_connection')
+@app_admin.route('/test_db_connection')
 def test_db_connection():
     """Test route to check database connection and models"""
     try:
@@ -5063,7 +5032,7 @@ def test_db_connection():
             'error_type': type(e).__name__
         }), 500
 
-@app.route('/delete_purchase_order/<int:id>', methods=['POST'])
+@app_admin.route('/delete_purchase_order/<int:id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_purchase_order(id):
@@ -5072,19 +5041,19 @@ def delete_purchase_order(id):
         
         if po.status not in ['draft', 'cancelled']:
             flash('Cannot delete purchase order that is not in draft or cancelled status', 'error')
-            return redirect(url_for('purchase_orders'))
+            return redirect(url_for('app_admin.purchase_orders'))
         
         db.session.delete(po)
         db.session.commit()
         flash('Purchase Order deleted successfully', 'success')
-        return redirect(url_for('purchase_orders'))
+        return redirect(url_for('app_admin.purchase_orders'))
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting purchase order: {e}")
         flash('An error occurred while deleting purchase order.', 'error')
-        return redirect(url_for('purchase_orders'))
+        return redirect(url_for('app_admin.purchase_orders'))
 
-@app.route('/add_po_item/<int:po_id>', methods=['POST'])
+@app_admin.route('/add_po_item/<int:po_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def add_po_item(po_id):
@@ -5093,7 +5062,7 @@ def add_po_item(po_id):
         
         if po.status not in ['draft', 'submitted']:
             flash('Cannot add items to purchase order that is not in draft or submitted status', 'error')
-            return redirect(url_for('edit_purchase_order', id=po_id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
         product_code = request.form.get('product_code')
         product_name = request.form.get('product_name')
@@ -5104,7 +5073,7 @@ def add_po_item(po_id):
         # At least one of product name or product code must be provided, plus quantity
         if (not product_code and not product_name) or not quantity:
             flash('Either product name or product code (or both) and quantity are required', 'error')
-            return redirect(url_for('edit_purchase_order', id=po_id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
         try:
             quantity = Decimal(str(quantity)) if quantity else None
@@ -5114,7 +5083,7 @@ def add_po_item(po_id):
             total_price = quantity * unit_price if unit_price and quantity else None
         except (ValueError, TypeError):
             flash('Invalid quantity or unit price', 'error')
-            return redirect(url_for('edit_purchase_order', id=po_id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
         new_item = PurchaseOrderItem(
             purchase_order_id=po_id,
@@ -5134,14 +5103,14 @@ def add_po_item(po_id):
         
         db.session.commit()
         flash('Item added to purchase order successfully', 'success')
-        return redirect(url_for('edit_purchase_order', id=po_id))
+        return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
     except Exception as e:
         db.session.rollback()
         print(f"Error adding PO item: {e}")
         flash('An error occurred while adding item to purchase order.', 'error')
-        return redirect(url_for('edit_purchase_order', id=po_id))
+        return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
 
-@app.route('/edit_po_item/<int:item_id>', methods=['GET', 'POST'])
+@app_admin.route('/edit_po_item/<int:item_id>', methods=['GET', 'POST'])
 @login_required
 @role_required(['admin'])
 def edit_po_item(item_id):
@@ -5178,7 +5147,7 @@ def edit_po_item(item_id):
                 if (not product_code and not product_name) or not quantity:
                     print(f"❌ Missing required fields")
                     flash('Either product name or product code (or both) and quantity are required', 'error')
-                    return redirect(url_for('edit_po_item', item_id=item_id))
+                    return redirect(url_for('app_admin.edit_po_item', item_id=item_id))
                 
                 # Validate numeric fields
                 try:
@@ -5189,13 +5158,13 @@ def edit_po_item(item_id):
                 except (ValueError, TypeError):
                     print(f"❌ Invalid quantity or unit price")
                     flash('Invalid quantity or unit price', 'error')
-                    return redirect(url_for('edit_po_item', item_id=item_id))
+                    return redirect(url_for('app_admin.edit_po_item', item_id=item_id))
                 
                 # Check if PO is editable
                 if po.status not in ['draft', 'submitted']:
                     print(f"❌ PO status '{po.status}' does not allow editing")
                     flash('Cannot edit items in purchase order that is not in draft or submitted status', 'error')
-                    return redirect(url_for('edit_purchase_order', id=po.id))
+                    return redirect(url_for('app_admin.edit_purchase_order', id=po.id))
                 
                 # Update the item
                 po_item.product_code = product_code
@@ -5220,7 +5189,7 @@ def edit_po_item(item_id):
                 print(f"✅ PO Item updated successfully")
                 print(f"✅ PO totals updated - Subtotal: {po.subtotal}, Total: {po.total_amount}")
                 flash('Purchase Order Item updated successfully', 'success')
-                return redirect(url_for('edit_purchase_order', id=po.id))
+                return redirect(url_for('app_admin.edit_purchase_order', id=po.id))
                 
             except Exception as e:
                 db.session.rollback()
@@ -5230,7 +5199,7 @@ def edit_po_item(item_id):
                 print(f"❌ Full traceback:")
                 traceback.print_exc()
                 flash(f'An error occurred while updating the item: {str(e)}', 'error')
-                return redirect(url_for('edit_po_item', item_id=item_id))
+                return redirect(url_for('app_admin.edit_po_item', item_id=item_id))
         
         # GET request - show edit form
         return render_template('edit_po_item.html', po_item=po_item, po=po)
@@ -5242,9 +5211,9 @@ def edit_po_item(item_id):
         print(f"❌ Full traceback:")
         traceback.print_exc()
         flash(f'A critical error occurred: {str(e)}', 'error')
-        return redirect(url_for('purchase_orders'))
+        return redirect(url_for('app_admin.purchase_orders'))
 
-@app.route('/delete_po_item/<int:item_id>', methods=['POST'])
+@app_admin.route('/delete_po_item/<int:item_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_po_item(item_id):
@@ -5254,7 +5223,7 @@ def delete_po_item(item_id):
         
         if po.status not in ['draft', 'submitted']:
             flash('Cannot delete items from purchase order that is not in draft or submitted status', 'error')
-            return redirect(url_for('edit_purchase_order', id=po.id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po.id))
         
         db.session.delete(item)
         
@@ -5264,14 +5233,14 @@ def delete_po_item(item_id):
         
         db.session.commit()
         flash('Item removed from purchase order successfully', 'success')
-        return redirect(url_for('edit_purchase_order', id=po.id))
+        return redirect(url_for('app_admin.edit_purchase_order', id=po.id))
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting PO item: {e}")
         flash('An error occurred while removing item from purchase order.', 'error')
-        return redirect(url_for('purchase_orders'))
+        return redirect(url_for('app_admin.purchase_orders'))
 
-@app.route('/receive_po/<int:po_id>', methods=['POST'])
+@app_admin.route('/receive_po/<int:po_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def receive_po(po_id):
@@ -5280,7 +5249,7 @@ def receive_po(po_id):
         
         if po.status != 'ordered':
             flash('Purchase order must be in ordered status to receive', 'error')
-            return redirect(url_for('edit_purchase_order', id=po_id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
         # Update received quantities
         for item in po.items:
@@ -5291,21 +5260,21 @@ def receive_po(po_id):
                     item.received_quantity = received_qty
             except ValueError:
                 flash('Invalid received quantity', 'error')
-                return redirect(url_for('edit_purchase_order', id=po_id))
+                return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
         po.status = 'received'
         po.delivery_date = datetime.now(EAT).date()
         
         db.session.commit()
         flash('Purchase order received successfully', 'success')
-        return redirect(url_for('purchase_order_details', po_id=po_id))
+        return redirect(url_for('app_admin.purchase_order_details', po_id=po_id))
     except Exception as e:
         db.session.rollback()
         print(f"Error receiving PO: {e}")
         flash('An error occurred while receiving purchase order.', 'error')
-        return redirect(url_for('purchase_order_details', po_id=po_id))
+        return redirect(url_for('app_admin.purchase_order_details', po_id=po_id))
 
-@app.route('/purchase_order_details/<int:po_id>')
+@app_admin.route('/purchase_order_details/<int:po_id>')
 @login_required
 @role_required(['admin'])
 def purchase_order_details(po_id):
@@ -5315,7 +5284,7 @@ def purchase_order_details(po_id):
         if not po:
             
             flash(f'Purchase Order with ID {po_id} not found', 'error')
-            return redirect(url_for('purchase_orders'))
+            return redirect(url_for('app_admin.purchase_orders'))
         
         # Add adjusted times (3 hours ahead) for display
         if po.created_at:
@@ -5331,9 +5300,9 @@ def purchase_order_details(po_id):
        
         traceback.print_exc()
         flash(f'A critical error occurred while loading purchase order details: {str(e)}', 'error')
-        return redirect(url_for('purchase_orders'))
+        return redirect(url_for('app_admin.purchase_orders'))
 
-@app.route('/export_purchase_order_pdf/<int:po_id>')
+@app_admin.route('/export_purchase_order_pdf/<int:po_id>')
 @login_required
 @role_required(['admin'])
 def export_purchase_order_pdf(po_id):
@@ -5376,7 +5345,7 @@ def export_purchase_order_pdf(po_id):
         
         # Load the logo image
         try:
-            logo_path = os.path.join(app.static_folder, 'assets', 'img', 'logo.png')
+            logo_path = os.path.join(app_admin.static_folder, 'assets', 'img', 'logo.png')
             print(f"Loading logo from: {logo_path}")
             logo_image = Image(logo_path, width=1.5*inch, height=1*inch)
             logo_cell = logo_image
@@ -5591,9 +5560,9 @@ def export_purchase_order_pdf(po_id):
     except Exception as e:
         print(f"Error generating purchase order PDF: {e}")
         flash('An error occurred while generating the PDF.', 'error')
-        return redirect(url_for('purchase_orders'))
+        return redirect(url_for('app_admin.purchase_orders'))
 
-@app.route('/add_purchase_order_item/<int:po_id>', methods=['POST'])
+@app_admin.route('/add_purchase_order_item/<int:po_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def add_purchase_order_item(po_id):
@@ -5603,7 +5572,7 @@ def add_purchase_order_item(po_id):
         # Check if PO is in editable state
         if po.status not in ['draft', 'submitted']:
             flash('Cannot add items to a purchase order that is not in draft or submitted status', 'error')
-            return redirect(url_for('edit_purchase_order', id=po_id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
         product_code = request.form.get('product_code', '').strip()
         product_name = request.form.get('product_name', '').strip()
@@ -5613,7 +5582,7 @@ def add_purchase_order_item(po_id):
         # At least one of product name or product code must be provided, plus quantity
         if (not product_code and not product_name) or not quantity:
             flash('Either product name or product code (or both) and quantity are required', 'error')
-            return redirect(url_for('edit_purchase_order', id=po_id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
         try:
             quantity = int(quantity)
@@ -5621,7 +5590,7 @@ def add_purchase_order_item(po_id):
                 raise ValueError("Quantity must be positive")
         except ValueError:
             flash('Quantity must be a positive number', 'error')
-            return redirect(url_for('edit_purchase_order', id=po_id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
         # Create new purchase order item
         po_item = PurchaseOrderItem(
@@ -5636,15 +5605,15 @@ def add_purchase_order_item(po_id):
         db.session.commit()
         
         flash('Item added successfully to purchase order', 'success')
-        return redirect(url_for('edit_purchase_order', id=po_id))
+        return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
         
     except Exception as e:
         db.session.rollback()
         print(f"Error adding item to purchase order: {e}")
         flash('An error occurred while adding item to purchase order', 'error')
-        return redirect(url_for('edit_purchase_order', id=po_id))
+        return redirect(url_for('app_admin.edit_purchase_order', id=po_id))
 
-@app.route('/delete_purchase_order_item/<int:item_id>', methods=['POST'])
+@app_admin.route('/delete_purchase_order_item/<int:item_id>', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_purchase_order_item(item_id):
@@ -5655,22 +5624,22 @@ def delete_purchase_order_item(item_id):
         # Check if PO is in editable state
         if po.status not in ['draft', 'submitted']:
             flash('Cannot delete items from a purchase order that is not in draft or submitted status', 'error')
-            return redirect(url_for('edit_purchase_order', id=po.id))
+            return redirect(url_for('app_admin.edit_purchase_order', id=po.id))
         
         db.session.delete(po_item)
         db.session.commit()
         
         flash('Item removed successfully from purchase order', 'success')
-        return redirect(url_for('edit_purchase_order', id=po.id))
+        return redirect(url_for('app_admin.edit_purchase_order', id=po.id))
         
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting purchase order item: {e}")
         flash('An error occurred while deleting item from purchase order', 'error')
-        return redirect(url_for('edit_purchase_order', id=po.id))
+        return redirect(url_for('app_admin.edit_purchase_order', id=po.id))
 
 # Error handlers
-@app.errorhandler(IntegrityError)
+@app_admin.errorhandler(IntegrityError)
 def handle_integrity_error(error):
     db.session.rollback()
     print(f"Integrity error: {error}")
@@ -5679,9 +5648,9 @@ def handle_integrity_error(error):
     if request.referrer and request.referrer != request.url:
         return redirect(request.referrer)
     # Fallback to login if no valid referrer
-    return redirect(url_for('login'))
+    return redirect(url_for('app_admin.login'))
 
-@app.errorhandler(Exception)
+@app_admin.errorhandler(Exception)
 def handle_general_error(error):
     db.session.rollback()
     print(f"General error: {error}")
@@ -5690,9 +5659,9 @@ def handle_general_error(error):
     if request.referrer and request.referrer != request.url:
         return redirect(request.referrer)
     # Fallback to login if no valid referrer
-    return redirect(url_for('login'))
+    return redirect(url_for('app_admin.login'))
 
-@app.route('/change_password', methods=['GET', 'POST'])
+@app_admin.route('/change_password', methods=['GET', 'POST'])
 @login_required
 def change_password():
     if request.method == 'POST':
@@ -5703,36 +5672,36 @@ def change_password():
         # Validation
         if not current_password or not new_password or not confirm_password:
             flash('All fields are required', 'error')
-            return redirect(url_for('change_password'))
+            return redirect(url_for('app_admin.change_password'))
         
         if new_password != confirm_password:
             flash('New passwords do not match', 'error')
-            return redirect(url_for('change_password'))
+            return redirect(url_for('app_admin.change_password'))
         
         if len(new_password) < 6:
             flash('New password must be at least 6 characters long', 'error')
-            return redirect(url_for('change_password'))
+            return redirect(url_for('app_admin.change_password'))
         
         # Verify current password
         if not current_user.check_password(current_password):
             flash('Current password is incorrect', 'error')
-            return redirect(url_for('change_password'))
+            return redirect(url_for('app_admin.change_password'))
         
         # Update password
         try:
             current_user.set_password(new_password)
             db.session.commit()
             flash('Password changed successfully', 'success')
-            return redirect(url_for('index'))
+            return redirect(url_for('app_admin.index'))
         except Exception as e:
             db.session.rollback()
             flash('An error occurred while changing password', 'error')
-            return redirect(url_for('change_password'))
+            return redirect(url_for('app_admin.change_password'))
     
     return render_template('change_password.html')
 
 # Sales Report Route - Matching abz-cashier-portal structure
-@app.route('/sales_report')
+@app_admin.route('/sales_report')
 @login_required
 @role_required(['admin'])
 def sales_report():
@@ -5839,7 +5808,7 @@ def sales_report():
                          selected_branch=selected_branch,
                          current_branch_id=branch_id)
 
-@app.route('/sales_report/daily-details/<date>')
+@app_admin.route('/sales_report/daily-details/<date>')
 @login_required
 @role_required(['admin'])
 def daily_sales_details(date):
@@ -5894,9 +5863,9 @@ def daily_sales_details(date):
     except Exception as e:
         print(f"Error in daily sales details: {e}")
         flash('An error occurred while loading daily sales details.', 'error')
-        return redirect(url_for('sales_report'))
+        return redirect(url_for('app_admin.sales_report'))
 
-@app.route('/export_daily_sales_pdf/<date>')
+@app_admin.route('/export_daily_sales_pdf/<date>')
 @login_required
 @role_required(['admin'])
 def export_daily_sales_pdf(date):
@@ -6001,7 +5970,7 @@ def export_daily_sales_pdf(date):
         
         # Load the logo image
         try:
-            logo_path = os.path.join(app.static_folder, 'assets', 'img', 'logo.png')
+            logo_path = os.path.join(app_admin.static_folder, 'assets', 'img', 'logo.png')
             print(f"Loading logo from: {logo_path}")
             logo_image = Image(logo_path, width=1.5*inch, height=1*inch)
             logo_cell = logo_image
@@ -6232,9 +6201,9 @@ def export_daily_sales_pdf(date):
     except Exception as e:
         print(f"Error exporting daily sales report to PDF: {e}")
         flash('An error occurred while exporting daily sales report to PDF.', 'error')
-        return redirect(url_for('daily_sales_details', date=date))
+        return redirect(url_for('app_admin.daily_sales_details', date=date))
 
-@app.route('/delete_payment', methods=['POST'])
+@app_admin.route('/delete_payment', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def delete_payment():
@@ -6245,7 +6214,7 @@ def delete_payment():
         
         if not payment_id or not order_id:
             flash('Invalid payment or order ID.', 'error')
-            return redirect(url_for('orders'))
+            return redirect(url_for('app_admin.orders'))
         
         # Get the payment
         payment = Payment.query.get_or_404(payment_id)
@@ -6253,7 +6222,7 @@ def delete_payment():
         # Verify the payment belongs to the specified order
         if payment.orderid != order_id:
             flash('Payment does not belong to the specified order.', 'error')
-            return redirect(url_for('order_details', order_id=order_id))
+            return redirect(url_for('app_admin.order_details', order_id=order_id))
         
         # Delete the payment
         db.session.delete(payment)
@@ -6267,9 +6236,9 @@ def delete_payment():
         flash('An error occurred while deleting the payment.', 'error')
     
     # Redirect back to the order details page
-    return redirect(url_for('order_details', order_id=order_id))
+    return redirect(url_for('app_admin.order_details', order_id=order_id))
 
-@app.route('/edit_payment', methods=['POST'])
+@app_admin.route('/edit_payment', methods=['POST'])
 @login_required
 @role_required(['admin'])
 def edit_payment():
@@ -6284,11 +6253,11 @@ def edit_payment():
         
         if not payment_id or not order_id or not payment_method or not amount or not payment_status:
             flash('All required fields must be filled.', 'error')
-            return redirect(url_for('order_details', order_id=order_id))
+            return redirect(url_for('app_admin.order_details', order_id=order_id))
         
         if amount <= 0:
             flash('Amount must be greater than zero.', 'error')
-            return redirect(url_for('order_details', order_id=order_id))
+            return redirect(url_for('app_admin.order_details', order_id=order_id))
         
         # Get the payment
         payment = Payment.query.get_or_404(payment_id)
@@ -6296,7 +6265,7 @@ def edit_payment():
         # Verify the payment belongs to the specified order
         if payment.orderid != order_id:
             flash('Payment does not belong to the specified order.', 'error')
-            return redirect(url_for('order_details', order_id=order_id))
+            return redirect(url_for('app_admin.order_details', order_id=order_id))
         
         # Update the payment
         payment.payment_method = payment_method
@@ -6315,7 +6284,7 @@ def edit_payment():
         flash('An error occurred while updating the payment.', 'error')
     
     # Redirect back to the order details page
-    return redirect(url_for('order_details', order_id=order_id))
+    return redirect(url_for('app_admin.order_details', order_id=order_id))
 
 def migrate_existing_passwords():
     """Migrate existing plain text passwords to hashed passwords"""
@@ -6341,10 +6310,3 @@ def migrate_existing_passwords():
     except Exception as e:
         print(f"❌ Error during password migration: {e}")
         db.session.rollback()
-
-if __name__ == '__main__':
-    # Uncomment the line below to migrate existing passwords
-    # with app.app_context():
-    #     migrate_existing_passwords()
-    
-    app.run(debug=True)

@@ -1,9 +1,4 @@
-from extensions import db
-from datetime import datetime, timezone, timedelta
-import secrets
-import string
-EAT = timezone(timedelta(hours=3))
-
+from config.dbconfig import db, EAT, datetime, secrets, string
 
 class Branch(db.Model):
     __tablename__ = 'branch'

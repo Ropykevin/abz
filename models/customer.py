@@ -1,8 +1,4 @@
-from main import db
-from datetime import datetime
-import secrets
-import string
-
+from config.dbconfig import db, EAT, datetime, secrets, string
 
 class Branch(db.Model):
     __tablename__ = 'branch'

@@ -1,15 +1,6 @@
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timezone, timedelta
+from config.dbconfig import db, EAT, datetime, secrets, string
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
-import secrets
-import string
-
-# Initialize database - will be initialized with Flask app
-db = SQLAlchemy()
-
-EAT = timezone(timedelta(hours=3))
-
 
 # ============================================================================
 # SITE PORTAL SPECIFIC MODELS

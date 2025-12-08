@@ -7,22 +7,21 @@ from datetime import datetime
 
 # Import app initialization and models
 from app import init_app, db, login_manager
-from app.models import *
-from app.decorators import sales_required
+from models import *
+from decorators import sales_required
 from app.services import OrderService, StockService, AuthService, QuotationService
 
 # Import email service and config
 from email_service import get_email_service
 from config import config
 
-app = Flask(__name__)
+#New Compiled Code
+from flask import Blueprint
+from config.appconfig import Config
+from config.dbconfig import db
 
-# Load configuration
-config_name = os.environ.get('FLASK_ENV', 'development')
-app.config.from_object(config[config_name])
-
-# Initialize app extensions
-init_app(app)
+app = Blueprint('app1', __name__)
+app.config.from_object(Config)
 
 # Add Jinja2 filter for formatting quantities
 @app.template_filter('format_quantity')

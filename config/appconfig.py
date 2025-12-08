@@ -1,14 +1,19 @@
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+
+login_manager = LoginManager()
+login_manager.login_message = 'Please log in to access this page.'
 
 # Load environment variables from .env file if it exists
 load_dotenv()
 
+
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'abz-hardware-secret-key-2024-secure-random-string'
-    # SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:deno0707@localhost/abzone'
-    SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:%23Deno0707@69.197.187.23:5432/abzone'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Cloudinary Configuration
@@ -16,6 +21,11 @@ class Config:
     CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', 'dxyewzvnr')
     CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', '171127627627327')
     CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', 'zgKkOpX35l93D7CdwnWOWGF2mk8')
+
+    #Brevo Email Configuration
+    BREVO_API_KEY = os.getenv('BREVO_API_KEY')
+    BREVO_SENDER_EMAIL = os.getenv('ABZ_EMAIL')
+    BREVO_SENDER_NAME = os.getenv('COMPANY_EMAIL')
     
     # File Upload Configuration
     UPLOAD_FOLDER = 'static/uploads/products'

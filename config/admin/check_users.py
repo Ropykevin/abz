@@ -1,4 +1,4 @@
-from extensions import db
+from dbconfig import db
 from models import User
 from flask import Flask
 from config import Config

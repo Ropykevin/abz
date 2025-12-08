@@ -1,34 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-from datetime import datetime, timezone, timedelta
+from flask import render_template, request, redirect, url_for, flash, jsonify, session
+from flask_login import login_user, login_required, logout_user, current_user
+from datetime import timezone, timedelta
 from sqlalchemy.orm import joinedload
-import os
-import cloudinary
-import cloudinary.uploader
-import cloudinary.api
 from models import *
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:%23Deno0707@69.197.187.23:5432/abzone'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+#New Compied Code
+from flask import Blueprint
+from config.appconfig import Config,login_manager,current_user,login_required,datetime,timedelta
+from config.dbconfig import db,EAT
+from helpers.cloudinary_upload import *
+from helpers.pdf_generate import *
 
-# Cloudinary configuration
-cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'dxyewzvnr'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY', '171127627627327'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'zgKkOpX35l93D7CdwnWOWGF2mk8')
-)
-
-# Initialize extensions
-db.init_app(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
-login_manager.login_message = 'Please log in to access this page.'
+app = Blueprint('app1', __name__)
+app.config.from_object(Config)
 
 @login_manager.user_loader
 def load_user(user_id):
