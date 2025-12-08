@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Initiate Stock Transfer - Store Keeper Portal{% endblock %}
+{% block page_title %}Initiate Stock Transfer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Initiate Stock Transfer Between Branches</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="transferForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="from_branch_id" class="form-label">From Branch *</label>
+                                <select class="form-select" id="from_branch_id" name="from_branch_id" required>
+                                    <option value="">Select Source Branch</option>
+                                    {% for branch in accessible_branches %}
+                                        <option value="{{ branch.id }}">{{ branch.name }} - {{ branch.location }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="to_branch_id" class="form-label">To Branch *</label>
+                                <select class="form-select" id="to_branch_id" name="to_branch_id" required>
+                                    <option value="">Select Destination Branch</option>
+                                    {% for branch in accessible_branches %}
+                                        <option value="{{ branch.id }}">{{ branch.name }} - {{ branch.location }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="branch_product_id" class="form-label">Product *</label>
+                        <select class="form-select" id="branch_product_id" name="branch_product_id" required>
+                            <option value="">Select both branches first</option>
+                        </select>
+                        <div class="form-text">
+                            Select a product to transfer. Products marked with ✓ exist in destination. Products marked [New] will be created.
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="quantity" class="form-label">Transfer Quantity *</label>
+                                <input type="number" class="form-control" id="quantity" name="quantity" min="1" step="1" required>
+                                <div class="form-text">Enter the quantity to transfer</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Available Stock</label>
+                                <p class="form-control-plaintext" id="availableStock">Select a product to see available stock</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Transfer Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Reason for transfer, special instructions, etc."></textarea>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Transfer Process:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Stock will be removed from the source branch</li>
+                            <li>Stock will be added to the destination branch</li>
+                            <li>If the product doesn't exist at the destination, it will be created</li>
+                            <li>All changes will be logged in the transaction history</li>
+                        </ul>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('stock_transfers') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Back to Transfers
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-exchange-alt me-2"></i>
+                            Initiate Transfer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadProducts() {
+    const fromBranchId = document.getElementById('from_branch_id').value;
+    const toBranchId = document.getElementById('to_branch_id').value;
+    const productSelect = document.getElementById('branch_product_id');
+    const availableStock = document.getElementById('availableStock');
+    
+    // Clear existing options
+    productSelect.innerHTML = '<option value="">Loading products...</option>';
+    availableStock.textContent = 'Select a product to see available stock';
+    
+    // Check if both branches are selected
+    if (!fromBranchId || !toBranchId) {
+        productSelect.innerHTML = '<option value="">Select both source and destination branches first</option>';
+        return;
+    }
+    
+    const url = `/api/transfer-products/${fromBranchId}/${toBranchId}`;
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                productSelect.innerHTML = '<option value="">Error: ' + data.error + '</option>';
+                return;
+            }
+            
+            if (!Array.isArray(data) || data.length === 0) {
+                productSelect.innerHTML = '<option value="">No products available for transfer</option>';
+                return;
+            }
+            
+            productSelect.innerHTML = '<option value="">Select Product</option>';
+            
+            data.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                
+                const stock = product.stock || 0;
+                const formattedStock = parseFloat(stock).toString().replace(/\.0+$/, '');
+                const destinationNote = product.exists_in_destination ? '✓' : '[New]';
+                
+                option.textContent = `${product.name} (Stock: ${formattedStock}) ${destinationNote}`;
+                option.dataset.stock = stock;
+                option.dataset.catalogId = product.catalog_id;
+                option.dataset.existsInDestination = product.exists_in_destination;
+                
+                productSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading products:', error);
+            productSelect.innerHTML = '<option value="">Error loading products</option>';
+        });
+}
+
+// Update available stock when product is selected
+document.getElementById('branch_product_id').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const availableStock = document.getElementById('availableStock');
+    
+    if (selectedOption.value) {
+        // Format stock to remove unnecessary decimals
+        const formattedStock = parseFloat(selectedOption.dataset.stock).toString().replace(/\.0+$/, '');
+        availableStock.textContent = `Available: ${formattedStock} units`;
+    } else {
+        availableStock.textContent = 'Select a product to see available stock';
+    }
+});
+
+// Validate quantity against available stock
+document.getElementById('quantity').addEventListener('input', function() {
+    const selectedOption = document.getElementById('branch_product_id').options[document.getElementById('branch_product_id').selectedIndex];
+    const quantity = parseInt(this.value);
+    const available = parseInt(selectedOption.dataset.stock) || 0;
+    
+    if (quantity > available) {
+        // Format stock to remove unnecessary decimals
+        const formattedAvailable = parseFloat(available).toString().replace(/\.0+$/, '');
+        this.setCustomValidity(`Cannot transfer more than available stock (${formattedAvailable})`);
+    } else {
+        this.setCustomValidity('');
+    }
+});
+
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    const fromBranchSelect = document.getElementById('from_branch_id');
+    const toBranchSelect = document.getElementById('to_branch_id');
+    
+    if (fromBranchSelect) {
+        fromBranchSelect.addEventListener('change', function() {
+            const fromBranchId = this.value;
+            
+            if (toBranchSelect.value === fromBranchId) {
+                toBranchSelect.value = '';
+            }
+            
+            Array.from(toBranchSelect.options).forEach(option => {
+                option.disabled = option.value === fromBranchId;
+            });
+            
+            loadProducts();
+        });
+    }
+    
+    if (toBranchSelect) {
+        toBranchSelect.addEventListener('change', function() {
+            const toBranchId = this.value;
+            
+            if (fromBranchSelect.value === toBranchId) {
+                fromBranchSelect.value = '';
+            }
+            
+            Array.from(fromBranchSelect.options).forEach(option => {
+                option.disabled = option.value === toBranchId;
+            });
+            
+            loadProducts();
+        });
+    }
+});
+</script>
+{% endblock %}

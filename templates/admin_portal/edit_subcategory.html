@@ -1,0 +1,298 @@
+{% extends "navbars.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="page-inner">
+    <div class="d-flex align-items-left align-items-md-center flex-column flex-md-row pt-2 pb-4">
+      <div>
+        <h3 class="fw-bold mb-3">Edit Subcategory</h3>
+        <h6 class="op-7 mb-2">Update subcategory information</h6>
+      </div>
+      <div class="ms-md-auto py-2 py-md-0">
+        <a href="{{ url_for('subcategories') }}" class="btn btn-secondary btn-round">
+          <i class="fas fa-arrow-left"></i> Back to Subcategories
+        </a>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-8">
+        <div class="card card-round">
+          <div class="card-header">
+            <div class="card-head-row">
+              <div class="card-title">Edit Subcategory: {{ subcategory.name }}</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <form method="POST" enctype="multipart/form-data">
+              <div class="row">
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <label for="name" class="form-label">Subcategory Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="name" name="name" 
+                           value="{{ subcategory.name }}" required>
+                    <small class="form-text text-muted">Choose a descriptive name for the subcategory.</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <label for="category_id" class="form-label">Parent Category <span class="text-danger">*</span></label>
+                    <select class="form-control" id="category_id" name="category_id" required>
+                      <option value="">Select a category</option>
+                      {% for category in categories %}
+                        <option value="{{ category.id }}" 
+                                {% if category.id == subcategory.category_id %}selected{% endif %}>
+                          {{ category.name }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">Select the main category this subcategory belongs to.</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="4" 
+                              placeholder="Enter subcategory description (optional)">{{ subcategory.description or '' }}</textarea>
+                    <small class="form-text text-muted">Provide additional details about the subcategory.</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mt-3">
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <label for="image" class="form-label">Subcategory Image</label>
+                    {% if subcategory.image_url %}
+                      <div class="mb-3">
+                        <label class="form-label">Current Image:</label>
+                        <div class="text-center">
+                          <img src="{{ subcategory.image_url }}" alt="{{ subcategory.name }}" 
+                               class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                        </div>
+                      </div>
+                    {% endif %}
+                    <div class="custom-file">
+                      <input type="file" class="custom-file-input" id="image" name="image" 
+                             accept="image/*" onchange="previewImage(this)">
+                      <label class="custom-file-label" for="image">
+                        {% if subcategory.image_url %}Change image{% else %}Choose file{% endif %}
+                      </label>
+                    </div>
+                    <small class="form-text text-muted">
+                      Supported formats: JPG, PNG, GIF, WebP. Max size: 16MB. Recommended size: 800x600px.
+                    </small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mt-3" id="imagePreview" style="display: none;">
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <label class="form-label">New Image Preview</label>
+                    <div class="text-center">
+                      <img id="preview" src="" alt="Preview" class="img-thumbnail" 
+                           style="max-width: 300px; max-height: 300px;">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mt-4">
+                <div class="col-md-12">
+                  <div class="form-group">
+                    <button type="submit" class="btn btn-primary btn-round">
+                      <i class="fas fa-save"></i> Update Subcategory
+                    </button>
+                    <a href="{{ url_for('subcategories') }}" class="btn btn-secondary btn-round">
+                      <i class="fas fa-times"></i> Cancel
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card card-round">
+          <div class="card-header">
+            <div class="card-head-row">
+              <div class="card-title">Subcategory Info</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-6">
+                <div class="text-center">
+                  <div class="icon-big text-center icon-info bubble-shadow-small mb-3">
+                    <i class="fas fa-box"></i>
+                  </div>
+                  <h4 class="card-title">{{ subcategory.products|length }}</h4>
+                  <p class="card-category">Products</p>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="text-center">
+                  <div class="icon-big text-center icon-success bubble-shadow-small mb-3">
+                    <i class="fas fa-tags"></i>
+                  </div>
+                  <h4 class="card-title">{{ subcategory.category.name }}</h4>
+                  <p class="card-category">Parent Category</p>
+                </div>
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="alert alert-info">
+              <h6><i class="fas fa-info-circle"></i> Subcategory Details</h6>
+              <ul class="mb-0">
+                <li><strong>ID:</strong> {{ subcategory.id }}</li>
+                <li><strong>Created:</strong> {{ subcategory.created_at.strftime('%Y-%m-%d') }}</li>
+                <li><strong>Status:</strong> 
+                  {% if subcategory.products %}
+                    <span class="badge badge-success">Active</span>
+                  {% else %}
+                    <span class="badge badge-warning">Empty</span>
+                  {% endif %}
+                </li>
+                <li><strong>Image:</strong> 
+                  {% if subcategory.image_url %}
+                    <span class="badge badge-success">Has Image</span>
+                  {% else %}
+                    <span class="badge badge-secondary">No Image</span>
+                  {% endif %}
+                </li>
+              </ul>
+            </div>
+
+            {% if subcategory.products %}
+            <div class="alert alert-warning">
+              <h6><i class="fas fa-exclamation-triangle"></i> Note</h6>
+              <p class="mb-0">This subcategory has {{ subcategory.products|length }} products. Changes will affect all associated products.</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card card-round mt-3">
+          <div class="card-header">
+            <div class="card-head-row">
+              <div class="card-title">Guidelines</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-info">
+              <h6><i class="fas fa-lightbulb"></i> Subcategory Best Practices</h6>
+              <ul class="mb-0">
+                <li>Use clear, descriptive names</li>
+                <li>Choose appropriate parent category</li>
+                <li>Add relevant subcategory images</li>
+                <li>Provide helpful descriptions</li>
+              </ul>
+            </div>
+
+            <div class="alert alert-warning">
+              <h6><i class="fas fa-exclamation-triangle"></i> Important Notes</h6>
+              <ul class="mb-0">
+                <li>Subcategory names should be unique within parent category</li>
+                <li>Subcategories cannot be deleted if they have products</li>
+                <li>Images are automatically optimized</li>
+              </ul>
+            </div>
+
+            <div class="text-center">
+              <i class="fas fa-folder fa-2x text-muted mb-2"></i>
+              <p class="text-muted small">Subcategories help organize products within main categories</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation
+    const form = document.querySelector('form');
+    const nameInput = document.getElementById('name');
+    const categorySelect = document.getElementById('category_id');
+    
+    form.addEventListener('submit', function(e) {
+        const name = nameInput.value.trim();
+        const categoryId = categorySelect.value;
+        
+        if (!name) {
+            e.preventDefault();
+            alert('Please enter a subcategory name.');
+            nameInput.focus();
+            return false;
+        }
+        
+        if (!categoryId) {
+            e.preventDefault();
+            alert('Please select a parent category.');
+            categorySelect.focus();
+            return false;
+        }
+        
+        if (name.length < 2) {
+            e.preventDefault();
+            alert('Subcategory name must be at least 2 characters long.');
+            nameInput.focus();
+            return false;
+        }
+    });
+    
+    // Auto-resize textarea
+    const descriptionTextarea = document.getElementById('description');
+    descriptionTextarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+    
+    // Set initial height for textarea
+    descriptionTextarea.style.height = 'auto';
+    descriptionTextarea.style.height = (descriptionTextarea.scrollHeight) + 'px';
+});
+
+function previewImage(input) {
+    const file = input.files[0];
+    const preview = document.getElementById('preview');
+    const previewDiv = document.getElementById('imagePreview');
+    const label = input.nextElementSibling;
+
+    if (file) {
+        // Update file label
+        label.textContent = file.name;
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            previewDiv.style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+    } else {
+        label.textContent = 'Choose file';
+        previewDiv.style.display = 'none';
+    }
+}
+
+// Update file input label when file is selected
+document.querySelector('.custom-file-input').addEventListener('change', function(e) {
+    var fileName = e.target.files[0].name;
+    var label = e.target.nextElementSibling;
+    label.textContent = fileName;
+});
+</script>
+{% endblock %} 

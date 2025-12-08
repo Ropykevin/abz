@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
+        <p class="text-muted">Welcome back, {{ current_user.firstname }}!</p>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">Total Sites</div>
+            <div class="stat-value">{{ stats.total_sites }}</div>
+            <small><i class="bi bi-building"></i> Active sites</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="stat-label">Quotation Requests</div>
+            <div class="stat-value">{{ stats.total_requests }}</div>
+            <small>{{ stats.pending_requests }} pending</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-label">Total Paid</div>
+            <div class="stat-value">KSh {{ "{:,.2f}".format(stats.total_paid) }}</div>
+            <small>All time payments</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-label">Outstanding</div>
+            <div class="stat-value">KSh {{ "{:,.2f}".format(stats.outstanding) }}</div>
+            <small>Amount due</small>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Quotation Requests -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-text"></i> Recent Requests</h5>
+                <a href="{{ url_for('site_portal.quotation_requests') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_requests %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Request ID</th>
+                                <th>Status</th>
+                                <th>Items</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in recent_requests %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('site_portal.quotation_request_detail', request_id=req.id) }}">
+                                        #{{ req.id }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'warning' if req.status == 'pending' else 'info' if req.status == 'reviewing' else 'success' if req.status == 'quoted' else 'secondary' }}">
+                                        {{ req.status|title }}
+                                    </span>
+                                </td>
+                                <td>{{ req.get_items()|length }} item(s)</td>
+                                <td>{{ req.created_at.strftime('%Y-%m-%d') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No requests yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Quotations -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-file-text"></i> Recent Quotations</h5>
+                <a href="{{ url_for('site_portal.quotations') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_quotations %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Number</th>
+                                <th>Status</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for quotation in recent_quotations %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('site_portal.quotation_detail', quotation_id=quotation.id) }}">
+                                        {{ quotation.quotation_number }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if quotation.status == 'accepted' else 'warning' if quotation.status == 'pending' else 'secondary' }}">
+                                        {{ quotation.status|title }}
+                                    </span>
+                                </td>
+                                <td>KSh {{ "{:,.2f}".format(quotation.total_amount|float) }}</td>
+                                <td>{{ quotation.created_at.strftime('%Y-%m-%d') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No quotations yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-cart"></i> Recent Orders</h5>
+                <a href="{{ url_for('site_portal.orders') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_orders %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Status</th>
+                                <th>Payment</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('site_portal.order_detail', order_id=order.id) }}">
+                                        #{{ order.id }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if order.approvalstatus else 'warning' }}">
+                                        {{ 'Approved' if order.approvalstatus else 'Pending' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if order.payment_status == 'paid' else 'warning' }}">
+                                        {{ order.payment_status|title }}
+                                    </span>
+                                </td>
+                                <td>{{ order.created_at.strftime('%Y-%m-%d') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No orders yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <!-- Recent Invoices -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-receipt"></i> Recent Invoices</h5>
+                <a href="{{ url_for('site_portal.invoices') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_invoices %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Invoice Number</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Due Date</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in recent_invoices %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('site_portal.invoice_detail', invoice_id=invoice.id) }}">
+                                        {{ invoice.invoice_number }}
+                                    </a>
+                                </td>
+                                <td>KSh {{ "{:,.2f}".format(invoice.total_amount|float) }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if invoice.status == 'paid' else 'warning' if invoice.status == 'pending' else 'danger' }}">
+                                        {{ invoice.status|title }}
+                                    </span>
+                                </td>
+                                <td>{{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else 'N/A' }}</td>
+                                <td>{{ invoice.created_at.strftime('%Y-%m-%d') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No invoices yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{{ url_for('site_portal.request_quotation') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Request Quotation
+                    </a>
+                    <a href="{{ url_for('site_portal.profile') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-person"></i> Manage Sites
+                    </a>
+                    <a href="{{ url_for('site_portal.payments') }}" class="btn btn-outline-success">
+                        <i class="bi bi-cash-coin"></i> View Payments
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

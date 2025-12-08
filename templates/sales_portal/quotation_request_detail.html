@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Quotation Request #{{ request.id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="mb-3">
+        <a href="{{ url_for('quotation_requests') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Requests
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Request Details -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Request Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Request ID:</strong> #{{ request.id }}</p>
+                            <p><strong>Site:</strong> 
+                                {% if request.site %}
+                                {{ request.site.site_name }} ({{ request.site.location }})
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Branch:</strong> 
+                                {% if request.branch %}
+                                {{ request.branch.name }} - {{ request.branch.location }}
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </p>
+                            {% if site_owner %}
+                            <p><strong>Site Owner:</strong> {{ site_owner.firstname }} {{ site_owner.lastname }}</p>
+                            <p><strong>Email:</strong> {{ site_owner.email }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Status:</strong> 
+                                <span class="badge bg-{{ 'warning' if request.status == 'pending' else 'info' if request.status == 'reviewing' else 'success' if request.status == 'quoted' else 'secondary' }}">
+                                    {{ request.status|title }}
+                                </span>
+                            </p>
+                            <p><strong>Created:</strong> {{ request.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                            <p><strong>Last Updated:</strong> {{ request.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                            {% if request.quotation %}
+                            <p><strong>Quotation:</strong> 
+                                <a href="{{ url_for('quotation_detail', quotation_id=request.quotation.id) }}">
+                                    {{ request.quotation.quotation_number }}
+                                </a>
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if request.notes %}
+                    <div class="mt-3">
+                        <strong>Notes:</strong>
+                        <p class="text-muted">{{ request.notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Requested Items</h5>
+                </div>
+                <div class="card-body">
+                    {% if items %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Product Name</th>
+                                    <th>Quantity</th>
+                                    <th>Unit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>{{ item.product_name }}</td>
+                                    <td>{{ item.quantity|format_quantity }}</td>
+                                    <td>{{ item.unit or 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No items in this request.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <!-- Actions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    {% if request.status == 'pending' or request.status == 'reviewing' %}
+                    <a href="{{ url_for('convert_quotation_request', request_id=request.id) }}" 
+                       class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-exchange-alt"></i> Convert to Quotation
+                    </a>
+                    {% endif %}
+                    {% if request.quotation %}
+                    <a href="{{ url_for('quotation_detail', quotation_id=request.quotation.id) }}" 
+                       class="btn btn-primary w-100 mb-2">
+                        <i class="fas fa-file-invoice"></i> View Quotation
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Site Information -->
+            {% if request.site %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Site Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Name:</strong> {{ request.site.site_name }}</p>
+                    <p><strong>Location:</strong> {{ request.site.location }}</p>
+                    {% if request.site.address %}
+                    <p><strong>Address:</strong> {{ request.site.address }}</p>
+                    {% endif %}
+                    {% if request.site.contact_person %}
+                    <p><strong>Contact:</strong> {{ request.site.contact_person }}</p>
+                    {% endif %}
+                    {% if request.site.contact_phone %}
+                    <p><strong>Phone:</strong> {{ request.site.contact_phone }}</p>
+                    {% endif %}
+                    {% if request.site.contact_email %}
+                    <p><strong>Email:</strong> {{ request.site.contact_email }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+

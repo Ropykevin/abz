@@ -1,0 +1,829 @@
+{% extends "base.html" %}
+
+{% block title %}Create Quotation{% endblock %}
+
+{% block head %}
+<style>
+    /* Manual item styling */
+    .manual-item-section {
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+    }
+    
+    .table-warning {
+        background-color: #fff3cd !important;
+    }
+    
+    .table-warning:hover {
+        background-color: #ffeaa7 !important;
+    }
+    
+    .badge.bg-warning {
+        font-size: 0.75em;
+        padding: 0.25em 0.5em;
+    }
+    
+    /* Form styling */
+    .form-control:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: #007bff;
+        border-color: #007bff;
+        color: white;
+    }
+    
+    .alert-success {
+        border-color: #c3e6cb;
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .table-info {
+        background-color: #d1ecf1 !important;
+    }
+    
+    .table-info:hover {
+        background-color: #bee5eb !important;
+    }
+    
+    #cancelEditBtn {
+        display: none;
+    }
+    
+    /* Table column wrapping */
+    .table td, .table th {
+        white-space: normal;
+        word-wrap: break-word;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    .table input[type="text"],
+    .table input[type="number"],
+    .table select {
+        min-width: 100%;
+        max-width: 100%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Create Quotation</h2>
+        <a href="{{ url_for('quotations_page') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Quotations
+        </a>
+    </div>
+
+    <form id="createQuotationForm" method="POST">
+        <div class="row">
+            <!-- Customer Information -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Customer Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="customer_name" class="form-label">Customer Name *</label>
+                            <input type="text" class="form-control" id="customer_name" name="customer_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="customer_email" class="form-label">Customer Email</label>
+                            <input type="email" class="form-control" id="customer_email" name="customer_email">
+                        </div>
+                        <div class="mb-3">
+                            <label for="customer_phone" class="form-label">Customer Phone</label>
+                            <input type="tel" class="form-control" id="customer_phone" name="customer_phone">
+                        </div>
+                        <div class="mb-3">
+                            <label for="branch_id" class="form-label">Branch *</label>
+                            <select class="form-select" id="branch_id" name="branch_id" required>
+                                <option value="">Select Branch</option>
+                                {% for branch in branches %}
+                                <option value="{{ branch.id }}">{{ branch.name }} - {{ branch.location }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="valid_until" class="form-label">Valid Until</label>
+                            <input type="date" class="form-control" id="valid_until" name="valid_until">
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Additional notes..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="discount_percentage" class="form-label">Discount (%)</label>
+                            <input type="number" class="form-control" id="discount_percentage" name="discount_percentage" 
+                                   min="0" max="100" step="0.01" value="0" onchange="updateTotal()" oninput="updateTotal()">
+                            <small class="text-muted">Enter discount percentage (0-100%)</small>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="include_vat" name="include_vat" onchange="updateTotal()">
+                                <label class="form-check-label" for="include_vat">
+                                    <strong>Include VAT (16%)</strong>
+                                </label>
+                            </div>
+                            <small class="text-muted">Enable this to add 16% VAT to the quotation total</small>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="show_quantity_in_pdf" name="show_quantity_in_pdf" checked>
+                                <label class="form-check-label" for="show_quantity_in_pdf">
+                                    <strong>Show Quantity in PDF</strong>
+                                </label>
+                            </div>
+                            <small class="text-muted">Uncheck to hide quantity column in PDF export</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Selection -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Product Selection</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="category_filter" class="form-label">Filter by Category</label>
+                            <select class="form-select" id="category_filter">
+                                                            <option value="">All Categories</option>
+                            {% for subcategory in subcategories %}
+                            <option value="{{ subcategory.id }}">{{ subcategory.category.name }} - {{ subcategory.name }}</option>
+                            {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="product_select" class="form-label">Select Product</label>
+                            <select class="form-select" id="product_select">
+                                <option value="">Choose a product...</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="quantity" class="form-label">Quantity</label>
+                                <input type="number" class="form-control" id="quantity" value="1" min="1">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="unit" class="form-label">Unit (Optional)</label>
+                                <input type="text" class="form-control" id="unit" placeholder="e.g., bags, boxes">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="unit_price" class="form-label">Unit Price (KSh)</label>
+                                <input type="number" class="form-control" id="unit_price" step="0.01" min="0">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="price_unit" class="form-label">Price Unit (Optional)</label>
+                                <input type="text" class="form-control" id="price_unit" placeholder="e.g., per floor">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="item_notes" class="form-label">Item Notes</label>
+                            <input type="text" class="form-control" id="item_notes" placeholder="Notes for this item...">
+                        </div>
+                        <button type="button" class="btn btn-success w-100" onclick="addProduct()">
+                            <i class="fas fa-plus"></i> Add Product
+                        </button>
+                        <button type="button" id="cancelEditProductBtn" class="btn btn-secondary w-100 mt-2" onclick="cancelEdit()" style="display: none;">
+                            <i class="fas fa-times"></i> Cancel Edit
+                        </button>
+                        
+                        <!-- Manual Item Section -->
+                        <hr class="my-4">
+                        <div class="mb-3 manual-item-section">
+                            <h6 class="text-muted mb-3">
+                                <i class="bi bi-plus-circle me-2"></i>Add Manual Item
+                            </h6>
+                            <div class="form-text mb-3">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Use this option to add items that are not in your product catalog (e.g., custom services, special orders, or one-time items).
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-md-3">
+                                    <label for="manual_item_name" class="form-label">Item Name *</label>
+                                    <input type="text" class="form-control" id="manual_item_name" placeholder="Enter item name">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="manual_quantity" class="form-label">Quantity *</label>
+                                    <input type="number" class="form-control" id="manual_quantity" min="1" value="1">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="manual_unit" class="form-label">Unit</label>
+                                    <input type="text" class="form-control" id="manual_unit" placeholder="e.g., bags">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="manual_unit_price" class="form-label">Unit Price (KSh) *</label>
+                                    <input type="number" class="form-control" id="manual_unit_price" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="manual_price_unit" class="form-label">Price Unit</label>
+                                    <input type="text" class="form-control" id="manual_price_unit" placeholder="e.g., per bag">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <label for="manual_item_notes" class="form-label">Item Notes</label>
+                                    <input type="text" class="form-control" id="manual_item_notes" placeholder="Notes for this item...">
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-outline-primary" onclick="addManualItem()">
+                                    <i class="bi bi-plus-circle me-2"></i>Add Manual Item
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary ms-2" onclick="clearManualItemForm()">
+                                    <i class="bi bi-x-circle me-2"></i>Clear Form
+                                </button>
+                                <button type="button" id="cancelEditManualBtn" class="btn btn-secondary ms-2" onclick="cancelEdit()" style="display: none;">
+                                    <i class="fas fa-times"></i> Cancel Edit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quotation Items -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Quotation Items</h5>
+            </div>
+            <div class="card-body">
+                <!-- Quotation Summary -->
+                <div id="quotationSummary" class="mb-3" style="display: none;">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 text-primary mb-1" id="totalItems">0</div>
+                                <small class="text-muted">Total Items</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 text-success mb-1" id="regularItems">0</div>
+                                <small class="text-muted">Regular Products</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 text-warning mb-1" id="manualItems">0</div>
+                                <small class="text-muted">Manual Items</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="quotationItems">
+                    <p class="text-muted">No items added yet.</p>
+                </div>
+                <div class="mt-4">
+                    <div class="row">
+                        <div class="col-md-8"></div>
+                        <div class="col-md-4">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td class="text-end"><strong>Subtotal:</strong></td>
+                                    <td class="text-end">KSh<span id="subtotalAmount">0.00</span></td>
+                                </tr>
+                                <tr id="discountRow" style="display: none;">
+                                    <td class="text-end"><strong>Discount (<span id="discountPercentageDisplay">0</span>%):</strong></td>
+                                    <td class="text-end text-danger">-KSh<span id="discountAmount">0.00</span></td>
+                                </tr>
+                                <tr id="subtotalAfterDiscountRow" style="display: none;">
+                                    <td class="text-end"><strong>Subtotal after Discount:</strong></td>
+                                    <td class="text-end">KSh<span id="subtotalAfterDiscount">0.00</span></td>
+                                </tr>
+                                <tr id="vatRow" style="display: none;">
+                                    <td class="text-end"><strong>VAT (16%):</strong></td>
+                                    <td class="text-end">KSh<span id="vatAmount">0.00</span></td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td class="text-end"><h5 class="mb-0">Total:</h5></td>
+                                    <td class="text-end"><h5 class="mb-0">KSh<span id="totalAmount">0.00</span></h5></td>
+                                </tr>
+                            </table>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success btn-lg" id="createQuotationBtn" disabled>
+                                    <i class="fas fa-check-circle"></i> Create Quotation
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <input type="hidden" id="quotationItemsData" name="items" value="[]">
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let quotationItems = [];
+let products = [];
+let editingIndex = -1; // Track which item is being edited (-1 means not editing)
+
+// Load products when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadProducts();
+    
+    // Add event listeners
+    document.getElementById('category_filter').addEventListener('change', loadProducts);
+    document.getElementById('product_select').addEventListener('change', updateProductInfo);
+});
+
+function loadProducts() {
+    const categoryId = document.getElementById('category_filter').value;
+    const branchId = document.getElementById('branch_id').value;
+    
+    let url = '/api/products?';
+    if (categoryId) url += `category_id=${categoryId}&`;
+    if (branchId) url += `branch_id=${branchId}&`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            products = data;
+            updateProductSelect();
+        })
+        .catch(error => {
+            console.error('Error loading products:', error);
+        });
+}
+
+function updateProductSelect() {
+    const select = document.getElementById('product_select');
+    select.innerHTML = '<option value="">Choose a product...</option>';
+    
+    products.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.id;
+        option.textContent = `${product.name} - KSh${product.selling_price} (Stock: ${product.stock})`;
+        select.appendChild(option);
+    });
+}
+
+function updateProductInfo() {
+    const productId = document.getElementById('product_select').value;
+    const product = products.find(p => p.id == productId);
+    
+    if (product) {
+        document.getElementById('unit_price').value = product.selling_price;
+    } else {
+        document.getElementById('unit_price').value = '';
+    }
+}
+
+function addProduct() {
+    const productId = document.getElementById('product_select').value;
+    const quantity = parseInt(document.getElementById('quantity').value);
+    const unit = document.getElementById('unit').value.trim();
+    const unitPrice = parseFloat(document.getElementById('unit_price').value);
+    const priceUnit = document.getElementById('price_unit').value.trim();
+    const notes = document.getElementById('item_notes').value;
+    
+    if (!productId) {
+        alert('Please select a product.');
+        return;
+    }
+    
+    if (!quantity || quantity < 1) {
+        alert('Please enter a valid quantity.');
+        return;
+    }
+    
+    if (!unitPrice || unitPrice < 0) {
+        alert('Please enter a valid unit price.');
+        return;
+    }
+    
+    const product = products.find(p => p.id == productId);
+    if (!product) {
+        alert('Product not found.');
+        return;
+    }
+    
+    // If editing an existing item, update it
+    if (editingIndex !== -1) {
+        quotationItems[editingIndex] = {
+            product_id: parseInt(productId),
+            product_name: product.name,
+            quantity: quantity,
+            unit: unit || null,
+            unit_price: unitPrice,
+            price_unit: priceUnit || null,
+            notes: notes
+        };
+        editingIndex = -1;
+        const productBtn = document.querySelector('[onclick="addProduct()"]');
+        productBtn.innerHTML = '<i class="fas fa-plus"></i> Add Product';
+        productBtn.classList.remove('btn-warning');
+        productBtn.classList.add('btn-success');
+        document.getElementById('cancelEditProductBtn').style.display = 'none';
+    } else {
+        // Check if product already exists in quotation
+        const existingItemIndex = quotationItems.findIndex(item => item.product_id == productId);
+        if (existingItemIndex !== -1) {
+            const confirmAction = confirm('This product is already in the quotation. Do you want to add more quantity or replace it?');
+            if (confirmAction) {
+                quotationItems[existingItemIndex].quantity += quantity;
+            }
+        } else {
+            quotationItems.push({
+                product_id: parseInt(productId),
+                product_name: product.name,
+                quantity: quantity,
+                unit: unit || null,
+                unit_price: unitPrice,
+                price_unit: priceUnit || null,
+                notes: notes
+            });
+        }
+    }
+    
+    updateQuotationItemsDisplay();
+    updateTotal();
+    
+    // Reset form
+    document.getElementById('product_select').value = '';
+    document.getElementById('quantity').value = '1';
+    document.getElementById('unit').value = '';
+    document.getElementById('unit_price').value = '';
+    document.getElementById('price_unit').value = '';
+    document.getElementById('item_notes').value = '';
+}
+
+function addManualItem() {
+    const itemName = document.getElementById('manual_item_name').value.trim();
+    const quantity = parseInt(document.getElementById('manual_quantity').value);
+    const unit = document.getElementById('manual_unit').value.trim();
+    const unitPrice = parseFloat(document.getElementById('manual_unit_price').value);
+    const priceUnit = document.getElementById('manual_price_unit').value.trim();
+    const notes = document.getElementById('manual_item_notes').value.trim();
+
+    if (!itemName) {
+        alert('Item name cannot be empty.');
+        document.getElementById('manual_item_name').focus();
+        return;
+    }
+
+    if (!quantity || quantity < 1) {
+        alert('Quantity must be at least 1.');
+        document.getElementById('manual_quantity').focus();
+        return;
+    }
+
+    if (!unitPrice || unitPrice < 0) {
+        alert('Unit price must be a positive number.');
+        document.getElementById('manual_unit_price').focus();
+        return;
+    }
+
+    // If editing an existing item, update it
+    if (editingIndex !== -1) {
+        quotationItems[editingIndex] = {
+            product_id: null,
+            product_name: itemName,
+            quantity: quantity,
+            unit: unit || null,
+            unit_price: unitPrice,
+            price_unit: priceUnit || null,
+            notes: notes
+        };
+        editingIndex = -1;
+        const manualBtn = document.querySelector('[onclick="addManualItem()"]');
+        manualBtn.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add Manual Item';
+        manualBtn.classList.remove('btn-primary');
+        manualBtn.classList.add('btn-outline-primary');
+        document.getElementById('cancelEditManualBtn').style.display = 'none';
+        updateQuotationItemsDisplay();
+        updateTotal();
+        clearManualItemForm();
+        return;
+    }
+
+    // Check if item already exists in quotation (case-insensitive)
+    const existingItemIndex = quotationItems.findIndex(item => 
+        item.product_id === null && item.product_name.toLowerCase() === itemName.toLowerCase()
+    );
+    
+    if (existingItemIndex !== -1) {
+        const confirmAdd = confirm(`Item "${itemName}" already exists in the quotation. Do you want to add ${quantity} more units?`);
+        if (confirmAdd) {
+            quotationItems[existingItemIndex].quantity += quantity;
+            updateQuotationItemsDisplay();
+            updateTotal();
+            clearManualItemForm();
+        }
+        return;
+    }
+
+    // Add new manual item
+    quotationItems.push({
+        product_id: null, // No direct product ID for manual items
+        product_name: itemName,
+        quantity: quantity,
+        unit: unit || null,
+        unit_price: unitPrice,
+        price_unit: priceUnit || null,
+        notes: notes
+    });
+
+    updateQuotationItemsDisplay();
+    updateTotal();
+    clearManualItemForm();
+    
+    // Show success message
+    const successMsg = document.createElement('div');
+    successMsg.className = 'alert alert-success alert-dismissible fade show mt-2';
+    successMsg.innerHTML = `
+        <i class="bi bi-check-circle me-2"></i>
+        Manual item "${itemName}" added successfully!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.manual-item-section').appendChild(successMsg);
+    
+    // Auto-remove success message after 3 seconds
+    setTimeout(() => {
+        if (successMsg.parentNode) {
+            successMsg.remove();
+        }
+    }, 3000);
+}
+
+function clearManualItemForm() {
+    document.getElementById('manual_item_name').value = '';
+    document.getElementById('manual_quantity').value = '1';
+    document.getElementById('manual_unit').value = '';
+    document.getElementById('manual_unit_price').value = '';
+    document.getElementById('manual_price_unit').value = '';
+    document.getElementById('manual_item_notes').value = '';
+}
+
+function editProduct(index) {
+    const item = quotationItems[index];
+    editingIndex = index;
+    
+    // Scroll to the appropriate form
+    if (item.product_id === null) {
+        // Manual item - populate manual item form
+        document.getElementById('manual_item_name').value = item.product_name;
+        document.getElementById('manual_quantity').value = item.quantity;
+        document.getElementById('manual_unit').value = item.unit || '';
+        document.getElementById('manual_unit_price').value = item.unit_price;
+        document.getElementById('manual_price_unit').value = item.price_unit || '';
+        document.getElementById('manual_item_notes').value = item.notes || '';
+        
+        // Change button text and show cancel button
+        const manualBtn = document.querySelector('[onclick="addManualItem()"]');
+        manualBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Update Manual Item';
+        manualBtn.classList.remove('btn-outline-primary');
+        manualBtn.classList.add('btn-primary');
+        document.getElementById('cancelEditManualBtn').style.display = 'inline-block';
+        
+        // Scroll to manual item section
+        document.querySelector('.manual-item-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+        // Regular product - populate product form
+        document.getElementById('product_select').value = item.product_id;
+        document.getElementById('quantity').value = item.quantity;
+        document.getElementById('unit').value = item.unit || '';
+        document.getElementById('unit_price').value = item.unit_price;
+        document.getElementById('price_unit').value = item.price_unit || '';
+        document.getElementById('item_notes').value = item.notes || '';
+        
+        // Change button text and show cancel button
+        const productBtn = document.querySelector('[onclick="addProduct()"]');
+        productBtn.innerHTML = '<i class="fas fa-check"></i> Update Product';
+        productBtn.classList.remove('btn-success');
+        productBtn.classList.add('btn-warning');
+        document.getElementById('cancelEditProductBtn').style.display = 'block';
+        
+        // Scroll to product selection section
+        document.getElementById('product_select').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+function cancelEdit() {
+    editingIndex = -1;
+    
+    // Reset product form
+    document.getElementById('product_select').value = '';
+    document.getElementById('quantity').value = '1';
+    document.getElementById('unit').value = '';
+    document.getElementById('unit_price').value = '';
+    document.getElementById('price_unit').value = '';
+    document.getElementById('item_notes').value = '';
+    const productBtn = document.querySelector('[onclick="addProduct()"]');
+    productBtn.innerHTML = '<i class="fas fa-plus"></i> Add Product';
+    productBtn.classList.remove('btn-warning');
+    productBtn.classList.add('btn-success');
+    document.getElementById('cancelEditProductBtn').style.display = 'none';
+    
+    // Reset manual item form
+    clearManualItemForm();
+    const manualBtn = document.querySelector('[onclick="addManualItem()"]');
+    manualBtn.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add Manual Item';
+    manualBtn.classList.remove('btn-primary');
+    manualBtn.classList.add('btn-outline-primary');
+    document.getElementById('cancelEditManualBtn').style.display = 'none';
+    
+    // Update display to remove editing highlight
+    updateQuotationItemsDisplay();
+}
+
+function removeProduct(index) {
+    if (confirm('Are you sure you want to remove this item?')) {
+        quotationItems.splice(index, 1);
+        
+        // If we were editing this item, cancel the edit
+        if (editingIndex === index) {
+            cancelEdit();
+        } else if (editingIndex > index) {
+            // Adjust editing index if needed
+            editingIndex--;
+        }
+        
+        updateQuotationItemsDisplay();
+        updateTotal();
+    }
+}
+
+function updateQuotationItemsDisplay() {
+    const container = document.getElementById('quotationItems');
+    const summaryDiv = document.getElementById('quotationSummary');
+    
+    if (quotationItems.length === 0) {
+        container.innerHTML = '<p class="text-muted">No items added yet.</p>';
+        summaryDiv.style.display = 'none';
+        return;
+    }
+    
+    // Update summary
+    const regularItems = quotationItems.filter(item => item.product_id !== null).length;
+    const manualItems = quotationItems.filter(item => item.product_id === null).length;
+    const totalItems = quotationItems.length;
+    
+    document.getElementById('totalItems').textContent = totalItems;
+    document.getElementById('regularItems').textContent = regularItems;
+    document.getElementById('manualItems').textContent = manualItems;
+    summaryDiv.style.display = 'block';
+    
+    let html = `
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                    <th>Notes</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    quotationItems.forEach((item, index) => {
+        const total = item.quantity * item.unit_price;
+        const isManualItem = item.product_id === null;
+        const isEditing = editingIndex === index;
+        
+        // Format quantity with unit
+        const quantityDisplay = item.unit ? `${item.quantity} ${item.unit}` : item.quantity;
+        
+        // Format total price with price unit
+        const totalDisplay = item.price_unit ? `KSh${total.toFixed(2)} ${item.price_unit}` : `KSh${total.toFixed(2)}`;
+        
+        html += `
+            <tr class="${isManualItem ? 'table-warning' : ''} ${isEditing ? 'table-info' : ''}">
+                <td>
+                    ${item.product_name}
+                    ${isManualItem ? '<span class="badge bg-warning text-dark ms-2">Manual</span>' : ''}
+                    ${isEditing ? '<span class="badge bg-info ms-2">Editing</span>' : ''}
+                </td>
+                <td>${quantityDisplay}</td>
+                <td>KSh${item.unit_price.toFixed(2)}</td>
+                <td>${totalDisplay}</td>
+                <td>${item.notes || '-'}</td>
+                <td>
+                    <button type="button" class="btn btn-primary btn-sm me-1" onclick="editProduct(${index})" title="Edit this item">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeProduct(${index})" title="Remove this item">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function updateTotal() {
+    const subtotal = quotationItems.reduce((sum, item) => {
+        return sum + (item.quantity * item.unit_price);
+    }, 0);
+    
+    // Get discount percentage
+    const discountPercentage = parseFloat(document.getElementById('discount_percentage').value) || 0;
+    const discountAmount = subtotal * (discountPercentage / 100);
+    const subtotalAfterDiscount = subtotal - discountAmount;
+    
+    // Calculate VAT on discounted amount
+    const includeVat = document.getElementById('include_vat').checked;
+    const vatRate = 16; // 16%
+    const vatAmount = includeVat ? subtotalAfterDiscount * (vatRate / 100) : 0;
+    const total = subtotalAfterDiscount + vatAmount;
+    
+    // Update displays
+    document.getElementById('subtotalAmount').textContent = subtotal.toFixed(2);
+    document.getElementById('discountPercentageDisplay').textContent = discountPercentage.toFixed(2);
+    document.getElementById('discountAmount').textContent = discountAmount.toFixed(2);
+    document.getElementById('subtotalAfterDiscount').textContent = subtotalAfterDiscount.toFixed(2);
+    document.getElementById('vatAmount').textContent = vatAmount.toFixed(2);
+    document.getElementById('totalAmount').textContent = total.toFixed(2);
+    
+    // Show/hide discount rows
+    const discountRow = document.getElementById('discountRow');
+    const subtotalAfterDiscountRow = document.getElementById('subtotalAfterDiscountRow');
+    const hasDiscount = discountPercentage > 0;
+    discountRow.style.display = hasDiscount ? '' : 'none';
+    subtotalAfterDiscountRow.style.display = hasDiscount ? '' : 'none';
+    
+    // Show/hide VAT row
+    const vatRow = document.getElementById('vatRow');
+    vatRow.style.display = includeVat ? '' : 'none';
+    
+    document.getElementById('quotationItemsData').value = JSON.stringify(quotationItems);
+    document.getElementById('createQuotationBtn').disabled = quotationItems.length === 0;
+}
+
+// Handle form submission
+document.getElementById('createQuotationForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (quotationItems.length === 0) {
+        alert('Please add at least one product to the quotation.');
+        return;
+    }
+    
+    const formData = new FormData(this);
+    formData.set('items', JSON.stringify(quotationItems));
+    
+    // Show loading state
+    const submitBtn = document.getElementById('createQuotationBtn');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Creating...';
+    submitBtn.disabled = true;
+    
+    fetch('/quotations/create', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert(`Quotation created successfully! Quotation ID: ${data.quotation_id}`);
+            window.location.href = `/quotations/${data.quotation_id}`;
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while creating the quotation. Please try again.');
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+// Update products when branch changes
+document.getElementById('branch_id').addEventListener('change', loadProducts);
+</script>
+{% endblock %} 

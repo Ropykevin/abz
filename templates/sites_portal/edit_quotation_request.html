@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Quotation Request #{{ request.id }} - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{{ url_for('site_portal.quotation_request_detail', request_id=request.id) }}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> Back to Request
+        </a>
+        <h2><i class="bi bi-pencil"></i> Edit Quotation Request #{{ request.id }}</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Edit Request</h5>
+            </div>
+            <div class="card-body">
+                <form id="editRequestForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="site_id" class="form-label">Site *</label>
+                            <select class="form-select" id="site_id" name="site_id" required>
+                                {% for site in sites %}
+                                <option value="{{ site.id }}" {% if site.id == request.site_id %}selected{% endif %}>
+                                    {{ site.site_name }} - {{ site.location }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="branch_id" class="form-label">Branch *</label>
+                            <select class="form-select" id="branch_id" name="branch_id" required>
+                                {% for branch in branches %}
+                                <option value="{{ branch.id }}" {% if branch.id == request.branch_id %}selected{% endif %}>
+                                    {{ branch.name }} - {{ branch.location }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Special Requirements / Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                  placeholder="Any special requirements, delivery instructions, etc.">{{ request.notes or '' }}</textarea>
+                    </div>
+
+                    <hr>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> <strong>Note:</strong> Please list the items you need. Our sales team will provide pricing and create the quotation for you.
+                    </div>
+                    <h5>Items</h5>
+                    <div id="itemsContainer">
+                        {% for item in items %}
+                        <div class="item-row mb-3 p-3 border rounded">
+                            <div class="row">
+                                <div class="col-md-5">
+                                    <label class="form-label">Product Name *</label>
+                                    <input type="text" class="form-control item-product-name" value="{{ item.product_name }}" required placeholder="Enter product name">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Quantity *</label>
+                                    <input type="number" class="form-control item-quantity" step="0.001" min="0" value="{{ item.quantity }}" required placeholder="0">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Unit</label>
+                                    <input type="text" class="form-control item-unit" value="{{ item.unit or '' }}" placeholder="e.g., bags, boxes, pcs">
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-danger remove-item">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <button type="button" class="btn btn-outline-primary mb-3" id="addItemBtn">
+                        <i class="bi bi-plus-circle"></i> Add Item
+                    </button>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('site_portal.quotation_request_detail', request_id=request.id) }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Update Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let itemCount = {{ items|length }};
+
+document.getElementById('addItemBtn').addEventListener('click', function() {
+    const container = document.getElementById('itemsContainer');
+    const newItem = document.createElement('div');
+    newItem.className = 'item-row mb-3 p-3 border rounded';
+    newItem.innerHTML = `
+        <div class="row">
+            <div class="col-md-5">
+                <label class="form-label">Product Name *</label>
+                <input type="text" class="form-control item-product-name" required placeholder="Enter product name">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Quantity *</label>
+                <input type="number" class="form-control item-quantity" step="0.001" min="0" required placeholder="0">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Unit</label>
+                <input type="text" class="form-control item-unit" placeholder="e.g., bags, boxes, pcs">
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="button" class="btn btn-danger remove-item">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    container.appendChild(newItem);
+    itemCount++;
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.remove-item')) {
+        const itemRow = e.target.closest('.item-row');
+        if (document.querySelectorAll('.item-row').length > 1) {
+            itemRow.remove();
+        } else {
+            alert('You must have at least one item');
+        }
+    }
+});
+
+document.getElementById('editRequestForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const items = [];
+    document.querySelectorAll('.item-row').forEach(row => {
+        items.push({
+            product_name: row.querySelector('.item-product-name').value,
+            quantity: parseFloat(row.querySelector('.item-quantity').value),
+            unit: row.querySelector('.item-unit').value
+        });
+    });
+
+    const formData = {
+        site_id: parseInt(document.getElementById('site_id').value),
+        branch_id: parseInt(document.getElementById('branch_id').value),
+        notes: document.getElementById('notes').value,
+        items: items
+    };
+
+    try {
+        const response = await fetch('{{ url_for("site_portal.edit_quotation_request", request_id=request.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Quotation request updated successfully!');
+            window.location.href = '{{ url_for("site_portal.quotation_request_detail", request_id=request.id) }}';
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (error) {
+        alert('An error occurred. Please try again.');
+    }
+});
+</script>
+{% endblock %}
+

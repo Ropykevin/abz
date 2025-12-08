@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Sites - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{{ url_for('site_portal.profile') }}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> Back to Profile
+        </a>
+        <h2><i class="bi bi-building"></i> Manage Sites</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Add Site Form -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Add New Site</h5>
+            </div>
+            <div class="card-body">
+                <form id="siteForm">
+                    <div class="mb-3">
+                        <label for="site_name" class="form-label">Site Name *</label>
+                        <input type="text" class="form-control" id="site_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Location *</label>
+                        <input type="text" class="form-control" id="location" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <textarea class="form-control" id="address" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="contact_person" class="form-label">Contact Person</label>
+                                <input type="text" class="form-control" id="contact_person">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="contact_phone" class="form-label">Contact Phone</label>
+                                <input type="tel" class="form-control" id="contact_phone">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact_email" class="form-label">Contact Email</label>
+                        <input type="email" class="form-control" id="contact_email">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Site
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- Existing Sites -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Your Sites</h5>
+            </div>
+            <div class="card-body">
+                {% if sites %}
+                <div class="list-group">
+                    {% for site in sites %}
+                    <div class="list-group-item">
+                        <h6 class="mb-1">{{ site.site_name }}</h6>
+                        <p class="mb-1 text-muted small">{{ site.location }}</p>
+                        <span class="badge bg-{{ 'success' if site.is_active else 'secondary' }}">
+                            {{ 'Active' if site.is_active else 'Inactive' }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No sites yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('siteForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        site_name: document.getElementById('site_name').value,
+        location: document.getElementById('location').value,
+        address: document.getElementById('address').value,
+        contact_person: document.getElementById('contact_person').value,
+        contact_phone: document.getElementById('contact_phone').value,
+        contact_email: document.getElementById('contact_email').value
+    };
+    
+    try {
+        const response = await fetch('{{ url_for("site_portal.manage_sites") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Site added successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (error) {
+        alert('An error occurred. Please try again.');
+    }
+});
+</script>
+{% endblock %}
+

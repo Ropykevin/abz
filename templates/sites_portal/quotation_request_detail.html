@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Quotation Request #{{ request.id }} - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{{ url_for('site_portal.quotation_requests') }}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> Back to Requests
+        </a>
+        <h2><i class="bi bi-file-earmark-text"></i> Quotation Request #{{ request.id }}</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Request Details -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Request Details</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Request ID:</strong> #{{ request.id }}</p>
+                        <p><strong>Site:</strong> 
+                            {% if request.site %}
+                            {{ request.site.site_name }} ({{ request.site.location }})
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Branch:</strong> 
+                            {% if request.branch %}
+                            {{ request.branch.name }} - {{ request.branch.location }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'warning' if request.status == 'pending' else 'info' if request.status == 'reviewing' else 'success' if request.status == 'quoted' else 'secondary' }}">
+                                {{ request.status|title }}
+                            </span>
+                        </p>
+                        <p><strong>Created:</strong> {{ request.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        <p><strong>Last Updated:</strong> {{ request.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        {% if request.quotation %}
+                        <p><strong>Quotation:</strong> 
+                            <a href="{{ url_for('site_portal.quotation_detail', quotation_id=request.quotation.id) }}">
+                                {{ request.quotation.quotation_number }}
+                            </a>
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if request.notes %}
+                <div class="mt-3">
+                    <strong>Notes:</strong>
+                    <p class="text-muted">{{ request.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Requested Items</h5>
+            </div>
+            <div class="card-body">
+                {% if items %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Product Name</th>
+                                <th>Quantity</th>
+                                <th>Unit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ item.product_name }}</td>
+                                <td>{{ item.quantity|format_quantity }}</td>
+                                <td>{{ item.unit or 'N/A' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No items in this request.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- Actions Card -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Actions</h5>
+            </div>
+            <div class="card-body">
+                {% if request.status == 'pending' %}
+                <a href="{{ url_for('site_portal.edit_quotation_request', request_id=request.id) }}" 
+                   class="btn btn-warning w-100 mb-2">
+                    <i class="bi bi-pencil"></i> Edit Request
+                </a>
+                {% endif %}
+                {% if request.quotation %}
+                <a href="{{ url_for('site_portal.quotation_detail', quotation_id=request.quotation.id) }}" 
+                   class="btn btn-primary w-100 mb-2">
+                    <i class="bi bi-file-text"></i> View Quotation
+                </a>
+                {% endif %}
+                <button class="btn btn-outline-secondary w-100" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Info -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">Status Information</h5>
+            </div>
+            <div class="card-body">
+                {% if request.status == 'pending' %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-clock"></i> Your request is pending review by our sales team.
+                </div>
+                {% elif request.status == 'reviewing' %}
+                <div class="alert alert-info">
+                    <i class="bi bi-eye"></i> Your request is currently being reviewed.
+                </div>
+                {% elif request.status == 'quoted' %}
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> A quotation has been created for this request.
+                </div>
+                {% elif request.status == 'cancelled' %}
+                <div class="alert alert-secondary">
+                    <i class="bi bi-x-circle"></i> This request has been cancelled.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

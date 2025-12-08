@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Product - Store Keeper Portal{% endblock %}
+{% block page_title %}Edit Product{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Edit Product: {{ product.name }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Product Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" value="{{ product.name }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="productcode" class="form-label">Product Code</label>
+                                <input type="text" class="form-control" id="productcode" name="productcode" value="{{ product.productcode or '' }}" placeholder="e.g., PROD-001">
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if product.image_url %}
+                    <div class="mb-3">
+                        <label class="form-label">Current Image</label>
+                        <div>
+                            <img src="{{ product.image_url }}" class="img-thumbnail" style="max-width: 300px; max-height: 300px;">
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="image" class="form-label">Update Product Image</label>
+                        <input type="file" class="form-control" id="image" name="image" accept="image/*" onchange="previewImage(this)">
+                        <div class="form-text">Upload a new product image (will be saved to Cloudinary)</div>
+                        <div id="imagePreview" class="mt-2"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="image_url" class="form-label">Or Enter Image URL</label>
+                        <input type="url" class="form-control" id="image_url" name="image_url" value="{{ product.image_url or '' }}" placeholder="https://example.com/image.jpg">
+                        <div class="form-text">Optional: If you don't upload an image, you can provide a URL</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="category_id" class="form-label">Category</label>
+                                <select class="form-select" id="category_id" name="category_id" onchange="loadSubcategories()">
+                                    <option value="">Select Category</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category.id }}" {% if product.subcategory and product.subcategory.category_id == category.id %}selected{% endif %}>
+                                            {{ category.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="subcategory_id" class="form-label">Subcategory</label>
+                                <select class="form-select" id="subcategory_id" name="subcategory_id">
+                                    <option value="">Select Subcategory</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('products') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Back to Products
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            Update Product
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Subcategories data - array of all subcategories
+const subcategories = [
+    {% for subcategory in subcategories %}
+    {
+        id: {{ subcategory.id }},
+        category_id: {{ subcategory.category_id }},
+        name: "{{ subcategory.name }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+// Current product's subcategory
+const currentSubcategoryId = {{ product.subcategory_id or 'null' }};
+
+function loadSubcategories() {
+    const categoryId = parseInt(document.getElementById('category_id').value);
+    const subcategorySelect = document.getElementById('subcategory_id');
+    
+    // Clear existing options
+    subcategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+    
+    if (categoryId) {
+        // Filter subcategories for selected category
+        const categorySubcategories = subcategories.filter(sub => sub.category_id === categoryId);
+        
+        categorySubcategories.forEach(subcategory => {
+            const option = document.createElement('option');
+            option.value = subcategory.id;
+            option.textContent = subcategory.name;
+            if (subcategory.id === currentSubcategoryId) {
+                option.selected = true;
+            }
+            subcategorySelect.appendChild(option);
+        });
+    }
+}
+
+// Load subcategories on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSubcategories();
+});
+
+function previewImage(input) {
+    const preview = document.getElementById('imagePreview');
+    
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            preview.innerHTML = '<img src="' + e.target.result + '" class="img-thumbnail" style="max-width: 300px; max-height: 300px;">';
+        }
+        
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.innerHTML = '';
+    }
+}
+</script>
+{% endblock %}

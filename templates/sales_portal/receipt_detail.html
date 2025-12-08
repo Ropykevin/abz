@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Receipt {{ receipt.receipt_number }} - ABZ Sales Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Receipt {{ receipt.receipt_number }}</h1>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('order_detail', order_id=receipt.orderid) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Order
+            </a>
+            <a href="{{ url_for('view_receipt_pdf', receipt_id=receipt.id) }}" class="btn btn-outline-primary" target="_blank">
+                <i class="fas fa-eye"></i> View PDF
+            </a>
+            <a href="{{ url_for('download_receipt_pdf', receipt_id=receipt.id) }}" class="btn btn-outline-success">
+                <i class="fas fa-download"></i> Download PDF
+            </a>
+            <a href="{{ url_for('send_receipt_email', receipt_id=receipt.id) }}" class="btn btn-outline-info">
+                <i class="fas fa-envelope"></i> Email Receipt
+            </a>
+            <a href="{{ url_for('debug_send_receipt_email', receipt_id=receipt.id) }}" class="btn btn-outline-warning">
+                <i class="fas fa-bug"></i> Debug Email
+            </a>
+            <button class="btn btn-warning" onclick="printReceipt()">
+                <i class="fas fa-print"></i> Print Receipt
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Receipt Details -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Receipt Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Receipt Information:</h6>
+                            <p class="mb-1"><strong>Receipt #:</strong> {{ receipt.receipt_number }}</p>
+                            <p class="mb-1"><strong>Order #:</strong> 
+                                <a href="{{ url_for('order_detail', order_id=receipt.orderid) }}">#{{ receipt.orderid }}</a>
+                            </p>
+                            <p class="mb-1"><strong>Date:</strong> {{ receipt.created_at }}</p>
+                            {% if receipt.reference_number %}
+                            <p class="mb-1"><strong>Reference:</strong> {{ receipt.reference_number }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <h6 class="text-muted">Payment Information:</h6>
+                            <p class="mb-1"><strong>Payment Method:</strong> 
+                                <span class="badge bg-info">{{ receipt.payment_method|title }}</span>
+                            </p>
+                            <p class="mb-1"><strong>Amount:</strong> 
+                                <span class="text-success fw-bold">KSh{{ receipt.payment_amount|format_currency }}</span>
+                            </p>
+                            {% if receipt.transaction_id %}
+                            <p class="mb-1"><strong>Transaction ID:</strong> {{ receipt.transaction_id }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50%;">Product</th>
+                                    <th style="width: 15%; text-align: center;">Quantity</th>
+                                    <th style="width: 15%; text-align: right;">Unit Price</th>
+                                    <th style="width: 20%; text-align: right;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in receipt.order.order_items %}
+                                <tr>
+                                    <td>
+                                        {% if item.product_name %}
+                                            {{ item.product_name }}
+                                        {% elif item.product %}
+                                            {{ item.product.name }}
+                                        {% else %}
+                                            Manual Item
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ item.quantity|format_quantity }}</td>
+                                    <td class="text-end">KSh{{ item.final_price|format_currency }}</td>
+                                    <td class="text-end">KSh{{ (item.quantity * item.final_price)|format_currency }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-active">
+                                <tr>
+                                    <th colspan="3" class="text-end">Order Total:</th>
+                                    <th class="text-end">KSh{{ receipt.payment_amount|format_currency }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Actions -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Receipt Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('view_receipt_pdf', receipt_id=receipt.id) }}" class="btn btn-outline-primary" target="_blank">
+                            <i class="fas fa-eye"></i> View PDF
+                        </a>
+                        <a href="{{ url_for('download_receipt_pdf', receipt_id=receipt.id) }}" class="btn btn-outline-success">
+                            <i class="fas fa-download"></i> Download PDF
+                        </a>
+                        <a href="{{ url_for('send_receipt_email', receipt_id=receipt.id) }}" class="btn btn-outline-info">
+                            <i class="fas fa-envelope"></i> Email Receipt
+                        </a>
+                        <a href="{{ url_for('debug_send_receipt_email', receipt_id=receipt.id) }}" class="btn btn-outline-warning">
+                            <i class="fas fa-bug"></i> Debug Email
+                        </a>
+                        <button class="btn btn-warning" onclick="printReceipt()">
+                            <i class="fas fa-print"></i> Print Receipt
+                        </button>
+                        <a href="{{ url_for('receipts_page') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-receipt"></i> View All Receipts
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function printReceipt() {
+    window.open(`/receipts/{{ receipt.id }}/print`, '_blank');
+}
+</script>
+{% endblock %} 

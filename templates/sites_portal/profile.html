@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-person"></i> Profile & Sites</h2>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Profile Information -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Profile Information</h5>
+            </div>
+            <div class="card-body">
+                <form id="profileForm">
+                    <div class="mb-3">
+                        <label for="firstname" class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="firstname" value="{{ current_user.firstname }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="lastname" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="lastname" value="{{ current_user.lastname }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" value="{{ current_user.email }}" disabled>
+                        <small class="text-muted">Email cannot be changed</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone</label>
+                        <input type="tel" class="form-control" id="phone" value="{{ current_user.phone or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">New Password (leave blank to keep current)</label>
+                        <input type="password" class="form-control" id="password" placeholder="Enter new password">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Update Profile
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Sites -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">My Sites</h5>
+                <a href="{{ url_for('site_portal.manage_sites') }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-circle"></i> Add Site
+                </a>
+            </div>
+            <div class="card-body">
+                {% if sites %}
+                <div class="list-group">
+                    {% for site in sites %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ site.site_name }}</h6>
+                                <p class="mb-1 text-muted">{{ site.location }}</p>
+                                {% if site.address %}
+                                <small class="text-muted">{{ site.address }}</small>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-{{ 'success' if site.is_active else 'secondary' }}">
+                                {{ 'Active' if site.is_active else 'Inactive' }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-building" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="text-muted mt-3">No sites added yet</p>
+                    <a href="{{ url_for('site_portal.manage_sites') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Your First Site
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('profileForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        firstname: document.getElementById('firstname').value,
+        lastname: document.getElementById('lastname').value,
+        phone: document.getElementById('phone').value,
+        password: document.getElementById('password').value
+    };
+    
+    try {
+        const response = await fetch('{{ url_for("site_portal.profile") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Profile updated successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (error) {
+        alert('An error occurred. Please try again.');
+    }
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Order #{{ order.id }} - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{{ url_for('site_portal.orders') }}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> Back to Orders
+        </a>
+        <h2><i class="bi bi-cart"></i> Order #{{ order.id }}</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Order Details -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Order Details</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Order ID:</strong> #{{ order.id }}</p>
+                        <p><strong>Site:</strong> 
+                            {% if order.site %}
+                            {{ order.site.site_name }} ({{ order.site.location }})
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Order Type:</strong> {{ order.ordertype.name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if order.approvalstatus else 'warning' }}">
+                                {{ 'Approved' if order.approvalstatus else 'Pending Approval' }}
+                            </span>
+                        </p>
+                        <p><strong>Payment Status:</strong> 
+                            <span class="badge bg-{{ 'success' if order.payment_status == 'paid' else 'warning' if order.payment_status == 'pending' else 'danger' }}">
+                                {{ order.payment_status|title }}
+                            </span>
+                        </p>
+                        <p><strong>Created:</strong> {{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        {% if order.approved_at %}
+                        <p><strong>Approved:</strong> {{ order.approved_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Items -->
+        {% if order.order_items %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Order Items</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Unit Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in order.order_items %}
+                            <tr>
+                                <td>{{ item.product_name or 'N/A' }}</td>
+                                <td>{{ item.quantity|format_quantity }}</td>
+                                <td>KSh {{ "{:,.2f}".format((item.final_price or item.negotiated_price or item.original_price or 0)|float) }}</td>
+                                <td>KSh {{ "{:,.2f}".format((item.quantity|float * (item.final_price or item.negotiated_price or item.original_price or 0)|float)) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-primary">
+                                <th colspan="3" class="text-end">Total:</th>
+                                <th>KSh {{ "{:,.2f}".format(order_total|float) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <!-- Summary Card -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Summary</h5>
+            </div>
+            <div class="card-body">
+                <div>
+                    <small class="text-muted">Total Amount</small>
+                    <div class="h4 text-primary">KSh {{ "{:,.2f}".format(order_total|float) }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Invoices -->
+        {% if order.invoices %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Invoices</h5>
+            </div>
+            <div class="card-body">
+                {% for invoice in order.invoices %}
+                <div class="mb-2">
+                    <a href="{{ url_for('site_portal.invoice_detail', invoice_id=invoice.id) }}">
+                        {{ invoice.invoice_number }}
+                    </a>
+                    <span class="badge bg-{{ 'success' if invoice.status == 'paid' else 'warning' }} ms-2">
+                        {{ invoice.status|title }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

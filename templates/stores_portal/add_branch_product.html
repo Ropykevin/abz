@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Add Branch Product - Store Keeper Portal{% endblock %}
+{% block page_title %}Add Product to Branch{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Add Product to Branch</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="branch_id" class="form-label">Branch *</label>
+                                <select class="form-select" id="branch_id" name="branch_id" required>
+                                    <option value="">Select Branch</option>
+                                    {% for branch in accessible_branches %}
+                                        <option value="{{ branch.id }}">{{ branch.name }} - {{ branch.location }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="catalog_id" class="form-label">Product *</label>
+                                <select class="form-select" id="catalog_id" name="catalog_id" required>
+                                    <option value="">Select Product</option>
+                                    {% for product in catalog_products %}
+                                        <option value="{{ product.id }}">{{ product.name }} {% if product.productcode %}({{ product.productcode }}){% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="buyingprice" class="form-label">Buying Price</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">KSH</span>
+                                    <input type="number" class="form-control" id="buyingprice" name="buyingprice" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="sellingprice" class="form-label">Selling Price</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">KSH</span>
+                                    <input type="number" class="form-control" id="sellingprice" name="sellingprice" step="0.01" min="0" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="stock" class="form-label">Initial Stock</label>
+                                <input type="number" class="form-control" id="stock" name="stock" min="0" step="1" placeholder="0">
+                                <div class="form-text">Enter the initial stock quantity</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="display" name="display" checked>
+                                    <label class="form-check-label" for="display">
+                                        Display in customer app
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('branch_products') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Back to Branch Products
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            Add to Branch
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

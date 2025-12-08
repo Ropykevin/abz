@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}My Quotation Requests - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h2><i class="bi bi-file-earmark-text"></i> My Quotation Requests</h2>
+        <a href="{{ url_for('site_portal.request_quotation') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> New Request
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="reviewing" {% if status_filter == 'reviewing' %}selected{% endif %}>Under Review</option>
+                    <option value="quoted" {% if status_filter == 'quoted' %}selected{% endif %}>Quoted</option>
+                    <option value="cancelled" {% if status_filter == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filter</button>
+                <a href="{{ url_for('site_portal.quotation_requests') }}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Requests Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">All Requests</h5>
+    </div>
+    <div class="card-body">
+        {% if requests %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Request ID</th>
+                        <th>Site</th>
+                        <th>Branch</th>
+                        <th>Items Count</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr>
+                        <td><strong>#{{ req.id }}</strong></td>
+                        <td>
+                            {% if req.site %}
+                            {{ req.site.site_name }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if req.branch %}
+                            {{ req.branch.name }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ req.get_items()|length }} item(s)</td>
+                        <td>
+                            <span class="badge bg-{{ 'warning' if req.status == 'pending' else 'info' if req.status == 'reviewing' else 'success' if req.status == 'quoted' else 'secondary' }}">
+                                {{ req.status|title }}
+                            </span>
+                        </td>
+                        <td>{{ req.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="{{ url_for('site_portal.quotation_request_detail', request_id=req.id) }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                            {% if req.status == 'pending' %}
+                            <a href="{{ url_for('site_portal.edit_quotation_request', request_id=req.id) }}" 
+                               class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+            <p class="text-muted mt-3">No quotation requests found</p>
+            <a href="{{ url_for('site_portal.request_quotation') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create Your First Request
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

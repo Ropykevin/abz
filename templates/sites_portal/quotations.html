@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Quotations - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h2><i class="bi bi-file-text"></i> Quotations</h2>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('site_portal.quotation_requests') }}" class="btn btn-outline-primary">
+                <i class="bi bi-file-earmark-text"></i> My Requests
+            </a>
+            <a href="{{ url_for('site_portal.request_quotation') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Request Quotation
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="accepted" {% if status_filter == 'accepted' %}selected{% endif %}>Accepted</option>
+                    <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                    <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>Expired</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Site</label>
+                <select name="site_id" class="form-select">
+                    <option value="">All Sites</option>
+                    {% for site in sites %}
+                    <option value="{{ site.id }}">{{ site.site_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filter</button>
+                <a href="{{ url_for('site_portal.quotations') }}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Quotations Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">All Quotations</h5>
+    </div>
+    <div class="card-body">
+        {% if quotations %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Quotation Number</th>
+                        <th>Site</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Valid Until</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for quotation in quotations %}
+                    <tr>
+                        <td>
+                            <strong>{{ quotation.quotation_number }}</strong>
+                        </td>
+                        <td>
+                            {% if quotation.site %}
+                            {{ quotation.site.site_name }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ quotation.customer_name }}</td>
+                        <td><strong>KSh {{ "{:,.2f}".format(quotation.total_amount|float) }}</strong></td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if quotation.status == 'accepted' else 'warning' if quotation.status == 'pending' else 'danger' if quotation.status == 'rejected' else 'secondary' }}">
+                                {{ quotation.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if quotation.valid_until %}
+                            {{ quotation.valid_until.strftime('%Y-%m-%d') }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ quotation.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="{{ url_for('site_portal.quotation_detail', quotation_id=quotation.id) }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+            <p class="text-muted mt-3">No quotations found</p>
+            <a href="{{ url_for('site_portal.request_quotation') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Request Your First Quotation
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

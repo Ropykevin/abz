@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Report - Store Keeper Portal{% endblock %}
+{% block page_title %}Inventory Report{% endblock %}
+
+{% block content %}
+<!-- Filter Section -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Filter Report</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-6">
+                <label for="branch_id" class="form-label">Branch</label>
+                <select class="form-select" id="branch_id" name="branch_id">
+                    <option value="">All Branches</option>
+                    {% for branch in accessible_branches %}
+                        <option value="{{ branch.id }}" {% if selected_branch == branch.id %}selected{% endif %}>
+                            {{ branch.name }} - {{ branch.location }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-2"></i>
+                        Apply Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-primary">{{ total_products }}</h5>
+                <p class="card-text">Total Products</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-success">{{ in_stock_count }}</h5>
+                <p class="card-text">In Stock</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-warning">{{ low_stock_count }}</h5>
+                <p class="card-text">Low Stock</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-danger">{{ out_of_stock_count }}</h5>
+                <p class="card-text">Out of Stock</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Inventory Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Inventory Report</h5>
+        <div>
+            <button class="btn btn-outline-primary btn-sm" onclick="exportToCSV()">
+                <i class="fas fa-download me-2"></i>
+                Export CSV
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="fas fa-print me-2"></i>
+                Print
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if branch_products %}
+            <div class="table-responsive">
+                <table class="table table-hover" id="inventoryTable">
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Product Name</th>
+                            <th>Product Code</th>
+                            <th>Branch</th>
+                            <th>Buying Price</th>
+                            <th>Selling Price</th>
+                            <th>Stock</th>
+                            <th>Status</th>
+                            <th>Visibility</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bp in branch_products %}
+                        <tr>
+                            <td>
+                                {% if bp.catalog_product.image_url %}
+                                    <img src="{{ bp.catalog_product.image_url }}" alt="{{ bp.catalog_product.name }}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                                {% else %}
+                                    <div class="bg-light d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                        <i class="fas fa-image text-muted"></i>
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ bp.catalog_product.name }}</strong>
+                            </td>
+                            <td>
+                                <code>{{ bp.catalog_product.productcode or 'N/A' }}</code>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ bp.branch.name }}</span>
+                            </td>
+                            <td>
+                                {% if bp.buyingprice %}
+                                    KSH {{ "%.15g"|format(bp.buyingprice) }}
+                                {% else %}
+                                    <span class="text-muted">Not set</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if bp.sellingprice %}
+                                    KSH {{ "%.15g"|format(bp.sellingprice) }}
+                                {% else %}
+                                    <span class="text-muted">Not set</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if bp.stock is none or bp.stock <= 0 %}danger{% elif bp.stock <= 10 %}warning{% else %}success{% endif %}">
+                                    {{ "%.15g"|format(bp.stock or 0) }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if bp.stock is none or bp.stock <= 0 %}
+                                    <span class="badge bg-danger">Out of Stock</span>
+                                {% elif bp.stock <= 10 %}
+                                    <span class="badge bg-warning">Low Stock</span>
+                                {% else %}
+                                    <span class="badge bg-success">In Stock</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if bp.display %}
+                                    <span class="badge bg-success">Visible</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Hidden</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if branch_products.pages > 1 %}
+                <nav aria-label="Inventory report pagination">
+                    <ul class="pagination justify-content-center mt-3">
+                        {% if branch_products.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('inventory_report', page=branch_products.prev_num, branch_id=request.args.get('branch_id', '')) }}">Previous</a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page_num in branch_products.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != branch_products.page %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('inventory_report', page=page_num, branch_id=request.args.get('branch_id', '')) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">…</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if branch_products.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('inventory_report', page=branch_products.next_num, branch_id=request.args.get('branch_id', '')) }}">Next</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+
+            <!-- Page Info -->
+            {% if branch_products %}
+                <div class="text-center text-muted mt-3">
+                    Showing {{ branch_products.per_page * (branch_products.page - 1) + 1 }} to 
+                    {{ [branch_products.per_page * branch_products.page, branch_products.total]|min }} of 
+                    {{ branch_products.total }} products
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No inventory data found</h5>
+                <p class="text-muted">No products found for the selected branch.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Print Styles -->
+<style>
+@media print {
+    .sidebar, .btn, .card-header .d-flex {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .table {
+        font-size: 12px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exportToCSV() {
+    const table = document.getElementById('inventoryTable');
+    const rows = Array.from(table.querySelectorAll('tr'));
+    
+    const csvContent = rows.map(row => {
+        const cells = Array.from(row.querySelectorAll('th, td'));
+        return cells.map(cell => {
+            // Remove HTML tags and clean up text
+            let text = cell.textContent.trim();
+            // Handle commas in text by wrapping in quotes
+            if (text.includes(',')) {
+                text = '"' + text + '"';
+            }
+            return text;
+        }).join(',');
+    }).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventory_report.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

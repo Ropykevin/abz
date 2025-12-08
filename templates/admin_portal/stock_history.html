@@ -1,0 +1,162 @@
+{% extends "navbars.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="page-inner">
+    <div class="d-flex align-items-left align-items-md-center flex-column flex-md-row pt-2 pb-4">
+      <div>
+        <h3 class="fw-bold mb-3">Stock Transaction History</h3>
+        <h6 class="op-7 mb-2">
+          Transaction history for 
+          {% if branch_product.catalog_product %}
+            {{ branch_product.catalog_product.name }}
+          {% else %}
+            Unknown Product
+          {% endif %}
+        </h6>
+      </div>
+      <div class="ms-md-auto py-2 py-md-0">
+        <a href="{{ url_for('export_stock_history_pdf', branch_product_id=branch_product.id) }}" class="btn btn-primary btn-round me-2">
+          <i class="fas fa-file-pdf"></i> Export PDF
+        </a>
+        <a href="{{ url_for('branch_products', branch_id=branch_product.branchid) }}" class="btn btn-secondary btn-round">
+          <i class="fas fa-arrow-left"></i> Back to Products
+        </a>
+      </div>
+    </div>
+
+    <!-- Product Info Card -->
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card card-round">
+          <div class="card-header">
+            <h4 class="card-title">Product Information</h4>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-2">
+                <strong>Product Name:</strong><br>
+                {% if branch_product.catalog_product %}
+                  {{ branch_product.catalog_product.name }}
+                {% else %}
+                  Unknown Product
+                {% endif %}
+              </div>
+              <div class="col-md-2">
+                <strong>Branch:</strong><br>
+                {{ branch_product.branch.name }}
+              </div>
+              <div class="col-md-2">
+                <strong>Category:</strong><br>
+                {% if branch_product.catalog_product and branch_product.catalog_product.subcategory %}
+                  {{ branch_product.catalog_product.subcategory.category.name }}
+                {% else %}
+                  N/A
+                {% endif %}
+              </div>
+              <div class="col-md-2">
+                <strong>Current Stock:</strong><br>
+                <span class="badge {% if branch_product.stock > 10 %}badge-success{% elif branch_product.stock > 0 %}badge-warning{% else %}badge-danger{% endif %}">
+                  {{ branch_product.stock | format_stock }}
+                </span>
+              </div>
+              <div class="col-md-2">
+                <strong>Buying Price:</strong><br>
+                KSh {{ "{:,.0f}".format(branch_product.buyingprice or 0) }}
+              </div>
+              <div class="col-md-2">
+                <strong>Selling Price:</strong><br>
+                KSh {{ "{:,.0f}".format(branch_product.sellingprice or 0) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock Transactions Table -->
+    <div class="row">
+      <div class="col-md-12">
+        <div class="card card-round">
+          <div class="card-header">
+            <div class="card-head-row">
+              <h4 class="card-title">Stock Transactions</h4>
+              <div class="card-tools">
+                <button class="btn btn-icon btn-link btn-primary btn-xs" data-bs-toggle="collapse" data-bs-target="#transactionsCollapse">
+                  <span class="fa fa-angle-down"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="card-body collapse show" id="transactionsCollapse">
+            {% if transactions %}
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Type</th>
+                    <th>Quantity</th>
+                    <th>Previous Stock</th>
+                    <th>New Stock</th>
+                    <th>User</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for transaction in transactions %}
+                  <tr>
+                    <td>{{ transaction.created_at_adjusted.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>
+                      {% if transaction.transaction_type == 'add' %}
+                        <span class="badge bg-success">Add</span>
+                      {% else %}
+                        <span class="badge bg-warning">Remove</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if transaction.transaction_type == 'add' %}
+                        <span class="text-success">
+                          +{% if transaction.quantity == transaction.quantity|int %}{{ transaction.quantity|int }}{% else %}{{ transaction.quantity }}{% endif %}
+                        </span>
+                      {% else %}
+                        <span class="text-danger">
+                          -{% if transaction.quantity == transaction.quantity|int %}{{ transaction.quantity|int }}{% else %}{{ transaction.quantity }}{% endif %}
+                        </span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if transaction.previous_stock == transaction.previous_stock|int %}
+                        {{ transaction.previous_stock|int }}
+                      {% else %}
+                        {{ transaction.previous_stock }}
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if transaction.new_stock == transaction.new_stock|int %}
+                        {{ transaction.new_stock|int }}
+                      {% else %}
+                        {{ transaction.new_stock }}
+                      {% endif %}
+                    </td>
+                    <td>{{ transaction.user.firstname }} {{ transaction.user.lastname }}</td>
+                    <td>{{ transaction.notes or 'No notes' }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+              <i class="fas fa-history fa-3x text-muted mb-3"></i>
+              <h5 class="text-muted">No stock transactions found</h5>
+              <p class="text-muted">Stock transactions will appear here when you add or remove stock.</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Quotation {{ quotation.quotation_number }} - ABZ Site Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{{ url_for('site_portal.quotations') }}" class="btn btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left"></i> Back to Quotations
+        </a>
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="bi bi-file-text"></i> Quotation: {{ quotation.quotation_number }}</h2>
+            <div>
+                <a href="{{ url_for('site_portal.view_quotation_pdf', quotation_id=quotation.id) }}" 
+                   class="btn btn-primary" target="_blank">
+                    <i class="bi bi-file-pdf"></i> View PDF
+                </a>
+                <a href="{{ url_for('site_portal.download_quotation_pdf', quotation_id=quotation.id) }}" 
+                   class="btn btn-success">
+                    <i class="bi bi-download"></i> Download PDF
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Quotation Details -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Quotation Details</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Quotation Number:</strong> {{ quotation.quotation_number }}</p>
+                        <p><strong>Customer:</strong> {{ quotation.customer_name }}</p>
+                        <p><strong>Email:</strong> {{ quotation.customer_email or 'N/A' }}</p>
+                        <p><strong>Phone:</strong> {{ quotation.customer_phone or 'N/A' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Site:</strong> 
+                            {% if quotation.site %}
+                            {{ quotation.site.site_name }} ({{ quotation.site.location }})
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if quotation.status == 'accepted' else 'warning' if quotation.status == 'pending' else 'danger' if quotation.status == 'rejected' else 'secondary' }}">
+                                {{ quotation.status|title }}
+                            </span>
+                        </p>
+                        <p><strong>Valid Until:</strong> 
+                            {% if quotation.valid_until %}
+                            {{ quotation.valid_until.strftime('%Y-%m-%d') }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Created:</strong> {{ quotation.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                    </div>
+                </div>
+                {% if quotation.notes %}
+                <div class="mt-3">
+                    <strong>Notes:</strong>
+                    <p class="text-muted">{{ quotation.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Items</h5>
+            </div>
+            <div class="card-body">
+                {% if quotation.items %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Unit Price</th>
+                                <th>Total Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in quotation.items %}
+                            <tr>
+                                <td>{{ item.product_name or 'N/A' }}</td>
+                                <td>
+                                    {{ item.quantity|format_quantity }}
+                                    {% if item.unit %} {{ item.unit }}{% endif %}
+                                </td>
+                                <td>KSh {{ "{:,.2f}".format(item.unit_price|float) }}</td>
+                                <td>
+                                    <strong>KSh {{ "{:,.2f}".format(item.total_price|float) }}</strong>
+                                    {% if item.price_unit %} {{ item.price_unit }}{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th colspan="3" class="text-end">Subtotal:</th>
+                                <th>KSh {{ "{:,.2f}".format(quotation.subtotal|float) }}</th>
+                            </tr>
+                            {% if quotation.discount_percentage and quotation.discount_percentage > 0 %}
+                            <tr>
+                                <th colspan="3" class="text-end">Discount ({{ quotation.discount_percentage }}%):</th>
+                                <th>-KSh {{ "{:,.2f}".format(quotation.discount_amount|float) }}</th>
+                            </tr>
+                            <tr>
+                                <th colspan="3" class="text-end">Subtotal After Discount:</th>
+                                <th>KSh {{ "{:,.2f}".format(quotation.subtotal_after_discount|float) }}</th>
+                            </tr>
+                            {% endif %}
+                            {% if quotation.include_vat %}
+                            <tr>
+                                <th colspan="3" class="text-end">VAT ({{ quotation.vat_rate }}%):</th>
+                                <th>KSh {{ "{:,.2f}".format(quotation.vat_amount|float) }}</th>
+                            </tr>
+                            {% endif %}
+                            <tr class="table-primary">
+                                <th colspan="3" class="text-end">Total Amount:</th>
+                                <th>KSh {{ "{:,.2f}".format(quotation.total_amount|float) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No items in this quotation.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- Summary Card -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">Subtotal</small>
+                    <div class="h5">KSh {{ "{:,.2f}".format(quotation.subtotal|float) }}</div>
+                </div>
+                {% if quotation.discount_percentage and quotation.discount_percentage > 0 %}
+                <div class="mb-3">
+                    <small class="text-muted">Discount</small>
+                    <div class="h6 text-danger">-KSh {{ "{:,.2f}".format(quotation.discount_amount|float) }}</div>
+                </div>
+                {% endif %}
+                {% if quotation.include_vat %}
+                <div class="mb-3">
+                    <small class="text-muted">VAT ({{ quotation.vat_rate }}%)</small>
+                    <div class="h6">KSh {{ "{:,.2f}".format(quotation.vat_amount|float) }}</div>
+                </div>
+                {% endif %}
+                <hr>
+                <div>
+                    <small class="text-muted">Total Amount</small>
+                    <div class="h4 text-primary">KSh {{ "{:,.2f}".format(quotation.total_amount|float) }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Actions</h5>
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('site_portal.view_quotation_pdf', quotation_id=quotation.id) }}" 
+                   class="btn btn-primary w-100 mb-2" target="_blank">
+                    <i class="bi bi-file-pdf"></i> View PDF
+                </a>
+                <a href="{{ url_for('site_portal.download_quotation_pdf', quotation_id=quotation.id) }}" 
+                   class="btn btn-success w-100 mb-2">
+                    <i class="bi bi-download"></i> Download PDF
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

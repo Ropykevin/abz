@@ -1,0 +1,1260 @@
+{% extends "base.html" %}
+{% block title %}Edit Walk-in Order - ABZ Hardware{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Modern card styling */
+    .card {
+        border: none;
+        border-radius: 0.75rem;
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    }
+    
+    .card-header {
+        border-radius: 0.75rem 0.75rem 0 0 !important;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    /* Button styling */
+    .btn {
+        border-radius: 0.5rem;
+        font-weight: 500;
+        transition: all 0.2s ease-in-out;
+    }
+    
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1.1rem;
+    }
+    
+    /* Form styling */
+    .form-control, .form-select {
+        border-radius: 0.5rem;
+        border: 1px solid #e0e0e0;
+        transition: all 0.2s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    }
+    
+    /* Table styling */
+    .table {
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .table th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    /* Item type styling */
+    .table-warning {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+        border-left: 4px solid #ffc107;
+    }
+    
+    .table-warning:hover {
+        background-color: rgba(255, 193, 7, 0.2) !important;
+    }
+    
+    .table-danger {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .table-danger:hover {
+        background-color: rgba(220, 53, 69, 0.2) !important;
+    }
+    
+    /* Badge styling */
+    .badge {
+        font-size: 0.75em;
+        padding: 0.35em 0.65em;
+        border-radius: 0.375rem;
+    }
+    
+    /* Input group styling */
+    .input-group .btn {
+        border-radius: 0;
+    }
+    
+    .input-group .btn:first-child {
+        border-top-left-radius: 0.5rem;
+        border-bottom-left-radius: 0.5rem;
+    }
+    
+    .input-group .btn:last-child {
+        border-top-right-radius: 0.5rem;
+        border-bottom-right-radius: 0.5rem;
+    }
+    
+    .input-group .form-control:first-child {
+        border-top-left-radius: 0.5rem;
+        border-bottom-left-radius: 0.5rem;
+    }
+    
+    .input-group .form-control:last-child {
+        border-top-right-radius: 0.5rem;
+        border-bottom-right-radius: 0.5rem;
+    }
+    
+    /* Alert styling */
+    .alert {
+        border-radius: 0.5rem;
+        border: none;
+    }
+    
+    .alert-info {
+        background-color: rgba(13, 202, 240, 0.1);
+        color: #0c5460;
+        border-left: 4px solid #0dcaf0;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .card {
+            margin-bottom: 1rem;
+        }
+        
+        .table-responsive {
+            border-radius: 0.5rem;
+        }
+        
+        .btn-lg {
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+        }
+    }
+    
+    /* Loading states */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    
+    /* Success animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .fade-in-up {
+        animation: fadeInUp 0.3s ease-out;
+    }
+    
+    /* Profit styling */
+    .profit-positive {
+        color: #198754 !important;
+    }
+    
+    .profit-negative {
+        color: #dc3545 !important;
+    }
+    
+    /* Spin animation */
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Product count info */
+    .product-count-info {
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-pencil-square text-primary me-2"></i>
+                        Edit Walk-in Order #{{ order.id }}
+                    </h2>
+                    <p class="text-muted mb-0">Modify products and update your walk-in order</p>
+                </div>
+                <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Order
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form id="editOrderForm" method="POST">
+        <div class="row">
+            <!-- Left Column: Order Setup -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-gear me-2"></i>Order Setup
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Branch Selection -->
+                        <div class="mb-4">
+                            <label for="branch_id" class="form-label fw-semibold">
+                                <i class="bi bi-building me-1"></i>Branch *
+                            </label>
+                            <select class="form-select" id="branch_id" name="branch_id" required>
+                                <option value="">Choose a branch...</option>
+                                {% for branch in branches %}
+                                <option value="{{ branch.id }}" {% if branch.id == order.branch_id %}selected{% endif %}>
+                                    {{ branch.name }} - {{ branch.location }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Select the branch where this order will be processed
+                            </div>
+                        </div>
+
+                        <!-- Quick Stats -->
+                        <div id="quickStats" class="row g-2 mb-4" style="display: none;">
+                            <div class="col-6">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center py-2">
+                                        <div class="h6 mb-0 text-primary" id="quickTotalItems">0</div>
+                                        <small class="text-muted">Items</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center py-2">
+                                        <div class="h6 mb-0 text-success" id="quickTotalAmount">KSh0</div>
+                                        <small class="text-muted">Total</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Product Selection -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="bi bi-search me-2"></i>Add Products
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Search and Filter Section -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="category_filter" class="form-label fw-semibold">
+                                    <i class="bi bi-funnel me-1"></i>Category Filter
+                                </label>
+                                <select class="form-select" id="category_filter">
+                                    <option value="">All Categories</option>
+                                    {% for subcategory in subcategories %}
+                                    <option value="{{ subcategory.id }}">{{ subcategory.category.name }} - {{ subcategory.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="product_search" class="form-label fw-semibold">
+                                    <i class="bi bi-search me-1"></i>Search Products
+                                </label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="product_search" placeholder="Search by name, code, or price...">
+                                    <button class="btn btn-outline-primary" type="button" id="searchBtn">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" style="display: none;">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Product Selection -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-8">
+                                <label for="product_select" class="form-label fw-semibold">
+                                    <i class="bi bi-box me-1"></i>Select Product
+                                </label>
+                                <select class="form-select" id="product_select">
+                                    <option value="">Select a product...</option>
+                                </select>
+                                <div class="form-text">
+                                    <span id="product_count" class="product-count-info">Loading products...</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="quantity" class="form-label fw-semibold">
+                                    <i class="bi bi-123 me-1"></i>Quantity
+                                </label>
+                                <div class="input-group">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="decreaseQuantity()">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                    <input type="number" class="form-control text-center" id="quantity" min="0.01" step="0.01" value="">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="increaseQuantity()">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Product Button -->
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-primary btn-lg" onclick="addProduct()">
+                                <i class="bi bi-plus-circle me-2"></i>Add to Order
+                            </button>
+                        </div>
+                        
+                        <!-- Manual Item Section -->
+                        <div class="mt-4">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning bg-opacity-10">
+                                    <h6 class="mb-0 text-warning">
+                                        <i class="bi bi-plus-circle me-2"></i>Add Manual Item
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info alert-sm mb-3">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        <strong>Manual Items:</strong> Add items not in your catalog (services, special orders, etc.)
+                                    </div>
+                                    
+                                    <div class="row g-3">
+                                        <div class="col-md-5">
+                                            <label for="manual_item_name" class="form-label fw-semibold">Item Name *</label>
+                                            <input type="text" class="form-control" id="manual_item_name" placeholder="Enter item name">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="manual_quantity" class="form-label fw-semibold">Qty *</label>
+                                            <input type="number" class="form-control" id="manual_quantity" min="0.01" step="0.01" value="">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="manual_buying_price" class="form-label fw-semibold">Cost (KSh)</label>
+                                            <input type="number" class="form-control" id="manual_buying_price" min="0" step="0.01" placeholder="0.00">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="manual_price" class="form-label fw-semibold">Price (KSh) *</label>
+                                            <input type="number" class="form-control" id="manual_price" min="0" step="0.01" placeholder="0.00">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3 d-flex gap-2">
+                                        <button type="button" class="btn btn-warning" onclick="addManualItem()">
+                                            <i class="bi bi-plus-circle me-2"></i>Add Manual Item
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="clearManualItemForm()">
+                                            <i class="bi bi-x-circle me-2"></i>Clear
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Items Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-ul me-2"></i>Order Items
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Order Summary Cards -->
+                        <div id="orderSummary" class="mb-4" style="display: none;">
+                            <div class="row g-3">
+                                <div class="col-lg-2 col-md-4 col-sm-6">
+                                    <div class="card bg-primary bg-opacity-10 border-primary h-100">
+                                        <div class="card-body text-center py-3">
+                                            <div class="h3 text-primary mb-1" id="totalItems">0</div>
+                                            <small class="text-muted fw-semibold">Total Items</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-2 col-md-4 col-sm-6">
+                                    <div class="card bg-success bg-opacity-10 border-success h-100">
+                                        <div class="card-body text-center py-3">
+                                            <div class="h3 text-success mb-1" id="regularItems">0</div>
+                                            <small class="text-muted fw-semibold">Products</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-2 col-md-4 col-sm-6">
+                                    <div class="card bg-warning bg-opacity-10 border-warning h-100">
+                                        <div class="card-body text-center py-3">
+                                            <div class="h3 text-warning mb-1" id="manualItems">0</div>
+                                            <small class="text-muted fw-semibold">Manual Items</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-2 col-md-4 col-sm-6">
+                                    <div class="card bg-danger bg-opacity-10 border-danger h-100">
+                                        <div class="card-body text-center py-3">
+                                            <div class="h3 text-danger mb-1" id="backorderItems">0</div>
+                                            <small class="text-muted fw-semibold">Backorders</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-8 col-sm-12">
+                                    <div class="card bg-info bg-opacity-10 border-info h-100">
+                                        <div class="card-body text-center py-3">
+                                            <div class="h3 mb-1" id="totalProfit">KSh0.00</div>
+                                            <small class="text-muted fw-semibold">Total Profit</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Order Items Table -->
+                        <div id="orderItems">
+                            <div class="text-center py-5">
+                                <i class="bi bi-arrow-clockwise text-muted spin" style="font-size: 3rem;"></i>
+                                <h5 class="text-muted mt-3">Loading existing order items...</h5>
+                                <p class="text-muted">Please wait while we load your order data</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="mt-4 pt-3 border-top">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center">
+                                        <h4 class="mb-0 me-3">Total: KSh<span id="totalAmount">0.00</span></h4>
+                                        <button type="button" class="btn btn-outline-danger" id="clearOrderBtn" onclick="clearAllItems()" style="display: none;">
+                                            <i class="bi bi-trash me-2"></i>Clear All Items
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-md-end">
+                                    <button type="submit" class="btn btn-success btn-lg" id="updateOrderBtn">
+                                        <i class="bi bi-check-circle me-2"></i>Update Order
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<input type="hidden" id="orderItemsData" name="items" value="[]">
+{% endblock %}
+
+{% block scripts %}
+<script>
+let orderItems = [];
+let products = [];
+let searchQuery = '';
+let searchTimeout;
+
+// Helper function to format numbers without showing .00 for whole numbers
+function formatNumber(num) {
+    return num % 1 === 0 ? num.toString() : num.toFixed(2);
+}
+
+// Load existing order items when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Load existing order items
+    loadExistingOrderItems();
+    
+    // Load products for the selected branch
+    loadProducts();
+    
+    // Add event listeners
+    document.getElementById('category_filter').addEventListener('change', loadProducts);
+    document.getElementById('product_select').addEventListener('change', updateProductInfo);
+    document.getElementById('product_search').addEventListener('input', performSearch);
+    document.getElementById('searchBtn').addEventListener('click', performSearch);
+    document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
+    
+    // Add tooltips
+    addHelpTooltips();
+    
+    // Focus on branch selection
+    document.getElementById('branch_id').focus();
+});
+
+function loadExistingOrderItems() {
+    // Load existing order items from the order data
+    {% for item in order.order_items %}
+    orderItems.push({
+        branch_product_id: {{ item.branch_product_id|tojson }},
+        product_id: {{ item.product_id|tojson }},
+        product_name: {{ item.product_name|tojson }},
+        quantity: {{ item.quantity }},
+        price: {{ item.price|tojson }},
+        buying_price: {{ item.buying_price|tojson }},
+        negotiated_price: {{ item.negotiated_price|tojson }},
+        negotiation_notes: {{ item.negotiation_notes|tojson }}
+    });
+    {% endfor %}
+    
+    updateOrderItemsDisplay();
+    updateTotal();
+}
+
+function loadProducts() {
+    const categoryId = document.getElementById('category_filter').value;
+    const branchId = document.getElementById('branch_id').value;
+    
+    // Don't load products if no branch is selected
+    if (!branchId) {
+        products = [];
+        updateProductSelect();
+        return;
+    }
+    
+    // Show loading state
+    showSearchIndicator();
+    
+    // Build API URL with search query
+    const params = new URLSearchParams();
+    if (categoryId) params.append('category_id', categoryId);
+    if (branchId) params.append('branch_id', branchId);
+    if (searchQuery) params.append('search', searchQuery);
+    
+    const url = `/api/products?${params.toString()}`;
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            products = data;
+            updateProductSelect();
+            updateOrderItemsDisplay();
+            updateTotal();
+            hideSearchIndicator();
+        })
+        .catch(error => {
+            console.error('Error loading products:', error);
+            hideSearchIndicator();
+            showError('Failed to load products. Please try again.');
+        });
+}
+
+function performSearch() {
+    const searchInput = document.getElementById('product_search');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    
+    const newSearchQuery = searchInput.value.trim();
+    
+    // Only perform search if query actually changed
+    if (newSearchQuery === searchQuery) {
+        return;
+    }
+    
+    searchQuery = newSearchQuery;
+    
+    // Update UI based on search state
+    if (searchQuery) {
+        searchBtn.style.display = 'none';
+        clearSearchBtn.style.display = 'block';
+        searchInput.classList.add('is-valid');
+        
+        // Show loading state in clear button temporarily
+        clearSearchBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i>';
+        clearSearchBtn.disabled = true;
+        
+        // Add visual feedback to search input
+        searchInput.classList.add('searching');
+        
+        // Show search indicator
+        showSearchIndicator('Searching...');
+    } else {
+        searchBtn.style.display = 'block';
+        clearSearchBtn.style.display = 'none';
+        searchInput.classList.remove('is-valid');
+        searchInput.classList.remove('searching');
+        hideSearchIndicator();
+    }
+    
+    // Debounce the search to avoid too many API calls
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        loadProducts();
+    }, 300);
+}
+
+function clearSearch() {
+    const searchInput = document.getElementById('product_search');
+    const searchBtn = document.getElementById('searchBtn');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    
+    // Clear search input
+    searchInput.value = '';
+    searchInput.classList.remove('is-valid');
+    searchInput.classList.remove('searching');
+    
+    // Reset UI
+    searchBtn.style.display = 'block';
+    clearSearchBtn.style.display = 'none';
+    clearSearchBtn.innerHTML = '<i class="bi bi-x"></i>';
+    clearSearchBtn.disabled = false;
+    
+    // Clear search query and reload products
+    searchQuery = '';
+    hideSearchIndicator();
+    loadProducts();
+}
+
+function showSearchIndicator(message = 'Searching...') {
+    const productCount = document.getElementById('product_count');
+    productCount.innerHTML = `<i class="bi bi-arrow-clockwise spin me-1"></i>${message}`;
+}
+
+function hideSearchIndicator() {
+    updateProductCount();
+}
+
+function showError(message) {
+    const productCount = document.getElementById('product_count');
+    productCount.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${message}</span>`;
+}
+
+function updateProductSelect(filteredProducts = null) {
+    const select = document.getElementById('product_select');
+    const productsToShow = filteredProducts || products;
+    
+    select.innerHTML = '<option value="">Select a product...</option>';
+    
+    productsToShow.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.id;
+        option.textContent = `${product.name} [${product.product_code}] - KSh${product.selling_price} (Stock: ${product.stock.toFixed(2)})`;
+        select.appendChild(option);
+    });
+    
+    updateProductCount(productsToShow);
+}
+
+function updateProductCount(productsToShow = null) {
+    const productCount = document.getElementById('product_count');
+    const count = (productsToShow || products).length;
+    
+    if (count === 0) {
+        productCount.innerHTML = '<span class="text-muted">No products found</span>';
+    } else if (count === 1) {
+        productCount.innerHTML = '<span class="text-success">Found 1 product</span>';
+    } else {
+        productCount.innerHTML = `<span class="text-success">Found ${count} products</span>`;
+    }
+}
+
+function increaseQuantity() {
+    const quantityInput = document.getElementById('quantity');
+    const currentValue = parseFloat(quantityInput.value) || 0;
+    quantityInput.value = formatNumber(currentValue + 1);
+}
+
+function decreaseQuantity() {
+    const quantityInput = document.getElementById('quantity');
+    const currentValue = parseFloat(quantityInput.value) || 0;
+    if (currentValue > 0.01) {
+        quantityInput.value = formatNumber(currentValue - 1);
+    }
+}
+
+function addHelpTooltips() {
+    // Add tooltips to form elements
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}
+
+function updateProductInfo() {
+    const productId = document.getElementById('product_select').value;
+    const product = products.find(p => p.id == productId);
+    
+    if (product) {
+        document.getElementById('quantity').max = product.stock;
+        if (document.getElementById('quantity').value > product.stock) {
+            document.getElementById('quantity').value = product.stock;
+        }
+    }
+}
+
+function addProduct() {
+    const productId = document.getElementById('product_select').value;
+    const quantity = parseFloat(document.getElementById('quantity').value);
+    
+    // Clear any previous validation errors
+    clearValidationErrors();
+    
+    if (!productId) {
+        showValidationError('Please select a product to add to your order.');
+        document.getElementById('product_select').focus();
+        return;
+    }
+    
+    if (!quantity || quantity <= 0) {
+        showValidationError('Please enter a valid quantity (minimum 0.01).');
+        document.getElementById('quantity').focus();
+        return;
+    }
+    
+    const product = products.find(p => p.id == productId);
+    if (!product) {
+        showValidationError('Selected product not found. Please refresh and try again.');
+        return;
+    }
+    
+    // Stock check removed - items will be added automatically regardless of stock level
+    
+    // Check if product already exists in order
+    const existingItem = orderItems.find(item => (item.branch_product_id ?? item.product_id) == productId);
+    if (existingItem) {
+        const newTotalQuantity = existingItem.quantity + quantity;
+        // Stock check removed - quantities will be added automatically regardless of stock level
+        existingItem.quantity = newTotalQuantity;
+    } else {
+        addProductToOrder(product, quantity);
+    }
+    
+    updateOrderItemsDisplay();
+    updateTotal();
+    showSuccessMessage(`${product.name} added to order successfully!`);
+    
+    // Reset form
+    document.getElementById('product_select').value = '';
+    document.getElementById('quantity').value = '';
+    document.getElementById('product_search').value = '';
+    document.getElementById('clearSearchBtn').style.display = 'none';
+}
+
+function addProductToOrder(product, quantity) {
+    orderItems.push({
+        branch_product_id: parseInt(product.id),
+        product_id: parseInt(product.id),
+        product_name: product.name,
+        quantity: quantity,
+        price: product.selling_price,
+        buying_price: product.buying_price || product.buyingprice || 0,
+        negotiated_price: null,
+        negotiation_notes: null
+    });
+    
+    // Debug logging
+    console.log(`Added product to order. Total items now: ${orderItems.length}`);
+}
+
+function showValidationError(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-2';
+    alertDiv.innerHTML = `
+        <i class="bi bi-exclamation-triangle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const productSelection = document.querySelector('.card-body');
+    productSelection.appendChild(alertDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Stock warning functions removed - items are now added automatically without confirmation
+
+function clearValidationErrors() {
+    const existingAlerts = document.querySelectorAll('.alert-danger');
+    existingAlerts.forEach(alert => alert.remove());
+}
+
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show mt-2';
+    alertDiv.innerHTML = `
+        <i class="bi bi-check-circle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const productSelection = document.querySelector('.card-body');
+    productSelection.appendChild(alertDiv);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+
+function addManualItem() {
+    const itemName = document.getElementById('manual_item_name').value.trim();
+    const quantity = parseFloat(document.getElementById('manual_quantity').value);
+    const buyingPrice = parseFloat(document.getElementById('manual_buying_price').value) || 0;
+    const price = parseFloat(document.getElementById('manual_price').value);
+
+    // Clear any previous validation errors
+    clearValidationErrors();
+
+    if (!itemName) {
+        showValidationError('Item name cannot be empty.');
+        document.getElementById('manual_item_name').focus();
+        return;
+    }
+
+    if (!quantity || quantity <= 0) {
+        showValidationError('Quantity must be greater than 0.');
+        document.getElementById('manual_quantity').focus();
+        return;
+    }
+
+    if (!price || price < 0) {
+        showValidationError('Selling price must be a positive number.');
+        document.getElementById('manual_price').focus();
+        return;
+    }
+
+    // Check if item already exists in order (case-insensitive)
+    const existingItem = orderItems.find(item => 
+        item.product_name.toLowerCase() === itemName.toLowerCase()
+    );
+    
+    if (existingItem) {
+        const confirmAdd = confirm(`Item "${itemName}" already exists in the order. Do you want to add ${quantity} more units?`);
+        if (confirmAdd) {
+            existingItem.quantity += quantity;
+            updateOrderItemsDisplay();
+            updateTotal();
+            clearManualItemForm();
+            showSuccessMessage(`Added ${quantity} more units of "${itemName}" to order!`);
+        }
+        return;
+    }
+
+    // Add new manual item
+    orderItems.push({
+        branch_product_id: null,
+        product_id: null, // No direct product ID for manual items
+        product_name: itemName,
+        quantity: quantity,
+        price: price,
+        buying_price: buyingPrice,
+        negotiated_price: null,
+        negotiation_notes: null
+    });
+
+    // Debug logging
+    console.log(`Added manual item to order. Total items now: ${orderItems.length}`);
+
+    updateOrderItemsDisplay();
+    updateTotal();
+    clearManualItemForm();
+    showSuccessMessage(`Manual item "${itemName}" added successfully!`);
+}
+
+function clearManualItemForm() {
+    document.getElementById('manual_item_name').value = '';
+    document.getElementById('manual_quantity').value = '';
+    document.getElementById('manual_buying_price').value = '';
+    document.getElementById('manual_price').value = '';
+    document.getElementById('manual_item_name').focus();
+}
+
+function removeProduct(index) {
+    orderItems.splice(index, 1);
+    updateOrderItemsDisplay();
+    updateTotal();
+}
+
+function clearAllItems() {
+    if (orderItems.length === 0) {
+        return;
+    }
+    
+    const confirmClear = confirm(`Are you sure you want to remove all ${orderItems.length} items from this order?`);
+    if (confirmClear) {
+        orderItems = [];
+        updateOrderItemsDisplay();
+        updateTotal();
+        showSuccessMessage('All items have been removed from the order.');
+    }
+}
+
+function updateOrderItemsDisplay() {
+    const container = document.getElementById('orderItems');
+    const orderSummary = document.getElementById('orderSummary');
+    
+    if (orderItems.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="bi bi-cart-x text-muted" style="font-size: 3rem;"></i>
+                <h5 class="text-muted mt-3">No items added yet</h5>
+                <p class="text-muted">Start by selecting a branch and adding products to update your order</p>
+            </div>
+        `;
+        orderSummary.style.display = 'none';
+        return;
+    }
+    
+    // Show order summary
+    orderSummary.style.display = 'block';
+    
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Buying Price <small class="text-muted">(Editable)</small></th>
+                        <th>Negotiated Selling Price</th>
+                        <th>Final Price</th>
+                        <th>Total</th>
+                        <th>Notes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    orderItems.forEach((item, index) => {
+        // Ensure price is a valid number
+        const price = parseFloat(item.price) || 0;
+        const negotiatedPrice = parseFloat(item.negotiated_price) || price;
+        const finalPrice = negotiatedPrice || price;
+        const total = item.quantity * finalPrice;
+        
+        const branchProductId = item.branch_product_id ?? item.product_id ?? null;
+        const isManualItem = branchProductId === null;
+        
+        // Check if this is a backorder (for regular products)
+        const productData = branchProductId !== null ? products.find(p => p.id == branchProductId) : null;
+        const availableStock = productData ? productData.stock : null;
+        const isBackorder = !isManualItem && availableStock !== null && availableStock !== undefined && item.quantity > availableStock;
+        
+        // Determine row class
+        let rowClass = '';
+        if (isManualItem) {
+            rowClass = 'table-warning';
+        } else if (isBackorder) {
+            rowClass = 'table-danger';
+        }
+        
+        html += `
+            <tr class="${rowClass}">
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            ${isManualItem ? 
+                                `<input type="text" 
+                                       class="form-control form-control-sm" 
+                                       value="${item.product_name}" 
+                                       onchange="updateProductName(${index}, this.value)"
+                                       placeholder="Enter item name"
+                                       style="min-width: 150px;">` : 
+                                `<strong>${item.product_name}</strong>`
+                            }
+                            ${isBackorder ? `<small class="text-danger d-block mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Backorder</small>` : ''}
+                        </div>
+                        <div class="ms-2">
+                            ${isManualItem ? '<span class="badge bg-warning text-dark"><i class="bi bi-tools me-1"></i>Manual</span>' : ''}
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <button class="btn btn-outline-secondary" type="button" onclick="updateQuantity(${index}, ${formatNumber(item.quantity - 1)})">
+                            <i class="bi bi-dash"></i>
+                        </button>
+                        <input type="number" 
+                               class="form-control text-center" 
+                               value="${formatNumber(item.quantity)}" 
+                               min="0.01"
+                               step="0.01"
+                               data-index="${index}"
+                               onchange="updateQuantity(${index}, this.value)"
+                               title="Enter quantity (supports decimals like 0.5)">
+                        <button class="btn btn-outline-secondary" type="button" onclick="updateQuantity(${index}, ${formatNumber(item.quantity + 1)})">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                    </div>
+                </td>
+                <td>
+                    <input type="number" 
+                           class="form-control form-control-sm" 
+                           value="${parseFloat(item.buying_price) || 0}" 
+                           step="0.01" 
+                           min="0"
+                           onchange="updateBuyingPrice(${index}, this.value)">
+                </td>
+                <td>
+                    <input type="number" 
+                           class="form-control form-control-sm" 
+                           value="${negotiatedPrice}" 
+                           step="0.01" 
+                           min="0"
+                           onchange="updateNegotiatedPrice(${index}, this.value)">
+                </td>
+                <td class="final-price"><strong>KSh${finalPrice.toFixed(2)}</strong></td>
+                <td class="item-total"><strong>KSh${total.toFixed(2)}</strong></td>
+                <td>
+                    <input type="text" 
+                           class="form-control form-control-sm" 
+                           placeholder="Notes..."
+                           value="${item.negotiation_notes || ''}"
+                           onchange="updateNegotiationNotes(${index}, this.value)">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeProduct(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function updateNegotiatedPrice(index, newPrice) {
+    const item = orderItems[index];
+    const originalPrice = parseFloat(item.price) || 0;
+    const negotiatedPrice = parseFloat(newPrice) || originalPrice;
+    
+    item.negotiated_price = negotiatedPrice !== originalPrice ? negotiatedPrice : null;
+    updateOrderItemsDisplay();
+    updateTotal();
+}
+
+function updateNegotiationNotes(index, notes) {
+    orderItems[index].negotiation_notes = notes.trim() || null;
+}
+
+function updateProductName(index, newName) {
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+        alert('Product name cannot be empty.');
+        // Restore the original name
+        const input = event.target;
+        input.value = orderItems[index].product_name;
+        return;
+    }
+    
+    orderItems[index].product_name = trimmedName;
+    updateOrderItemsDisplay();
+    updateTotal();
+}
+
+function updateBuyingPrice(index, newBuyingPrice) {
+    const item = orderItems[index];
+    const buyingPrice = parseFloat(newBuyingPrice) || 0;
+    
+    if (buyingPrice < 0) {
+        alert('Buying price cannot be negative.');
+        return;
+    }
+    
+    item.buying_price = buyingPrice;
+    updateOrderItemsDisplay();
+}
+
+function updateQuantity(index, newQuantity) {
+    const quantity = parseFloat(newQuantity);
+    if (quantity <= 0) {
+        alert('Quantity must be greater than 0.');
+        return;
+    }
+
+    const item = orderItems[index];
+    
+    // For regular products, check stock availability
+    const branchProductId = item.branch_product_id ?? item.product_id;
+    if (branchProductId) {
+        const product = products.find(p => p.id == branchProductId);
+        // Stock check removed - quantities will be updated automatically regardless of stock level
+    }
+    // For manual items, no stock restrictions
+
+    item.quantity = quantity;
+    updateOrderItemsDisplay();
+    updateTotal();
+}
+
+function updateTotal() {
+    const total = orderItems.reduce((sum, item) => {
+        const price = parseFloat(item.price) || 0;
+        const finalPrice = parseFloat(item.negotiated_price) || price;
+        return sum + (item.quantity * finalPrice);
+    }, 0);
+    
+    // Calculate profit
+    const totalProfit = orderItems.reduce((sum, item) => {
+        const price = parseFloat(item.price) || 0;
+        const finalPrice = parseFloat(item.negotiated_price) || price;
+        const buyingPrice = parseFloat(item.buying_price) || 0;
+        return sum + (item.quantity * (finalPrice - buyingPrice));
+    }, 0);
+    
+    // Count different types of items
+    const regularItems = orderItems.filter(item => (item.branch_product_id ?? item.product_id) !== null).length;
+    const manualItems = orderItems.filter(item => (item.branch_product_id ?? item.product_id) === null).length;
+    const backorderItems = orderItems.filter(item => {
+        const branchProductId = item.branch_product_id ?? item.product_id;
+        if (branchProductId === null) return false; // Manual items can't be backorders
+        const product = products.find(p => p.id == branchProductId);
+        return product && item.quantity > product.stock;
+    }).length;
+    
+    // Update total amount
+    const totalAmountElement = document.getElementById('totalAmount');
+    if (totalAmountElement) {
+        totalAmountElement.textContent = total.toFixed(2);
+    }
+    
+    // Update order summary cards
+    const totalItemsElement = document.getElementById('totalItems');
+    const regularItemsElement = document.getElementById('regularItems');
+    const manualItemsElement = document.getElementById('manualItems');
+    const backorderItemsElement = document.getElementById('backorderItems');
+    const totalProfitElement = document.getElementById('totalProfit');
+    
+    if (totalItemsElement) totalItemsElement.textContent = orderItems.length;
+    if (regularItemsElement) regularItemsElement.textContent = regularItems;
+    if (manualItemsElement) manualItemsElement.textContent = manualItems;
+    if (backorderItemsElement) backorderItemsElement.textContent = backorderItems;
+    if (totalProfitElement) {
+        totalProfitElement.textContent = `KSh${totalProfit.toFixed(2)}`;
+        totalProfitElement.className = totalProfit >= 0 ? 'h3 mb-1 profit-positive' : 'h3 mb-1 profit-negative';
+    }
+    
+    // Update quick stats
+    const quickTotalItems = document.getElementById('quickTotalItems');
+    const quickTotalAmount = document.getElementById('quickTotalAmount');
+    if (quickTotalItems) quickTotalItems.textContent = orderItems.length;
+    if (quickTotalAmount) quickTotalAmount.textContent = `KSh${total.toFixed(2)}`;
+    
+    // Update hidden form data
+    document.getElementById('orderItemsData').value = JSON.stringify(orderItems);
+    
+    // Debug logging
+    console.log(`Order items length: ${orderItems.length}, Total: ${total.toFixed(2)}`);
+}
+
+// Handle form submission
+document.getElementById('editOrderForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (orderItems.length === 0) {
+        alert('Please add at least one product to the order.');
+        return;
+    }
+    
+    const formData = new FormData(this);
+    formData.set('items', JSON.stringify(orderItems));
+    
+    // Show loading state
+    const submitBtn = document.getElementById('updateOrderBtn');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Updating...';
+    submitBtn.disabled = true;
+    
+    fetch('/orders/{{ order.id }}/edit', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('Order updated successfully!');
+            window.location.href = '/orders/{{ order.id }}';
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while updating the order. Please try again.');
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+// Update products when branch changes
+document.getElementById('branch_id').addEventListener('change', function() {
+    // Clear current products and order items when branch changes
+    products = [];
+    orderItems = [];
+    
+    // Clear product selection
+    document.getElementById('product_select').innerHTML = '<option value="">Select Product</option>';
+    
+    // Clear order items display
+    document.getElementById('orderItems').innerHTML = '<p class="text-muted">Loading existing order items...</p>';
+    
+    // Reset total
+    document.getElementById('totalAmount').textContent = '0.00';
+    document.getElementById('orderItemsData').value = '[]';
+    
+    // Load products for the new branch
+    loadProducts();
+    
+    // Reload existing order items
+    loadExistingOrderItems();
+});
+</script>
+{% endblock %}
