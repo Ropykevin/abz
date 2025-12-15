@@ -1,15 +1,42 @@
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, login_user, logout_user, current_user
+from functools import wraps
+from flask import redirect,flash,request,url_for
 
 login_manager = LoginManager()
 login_manager.login_message = 'Please log in to access this page.'
 
+# Custom Login required
+def login_required(app_name):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if current_user.is_authenticated:
+                return f(*args, **kwargs)
+            next_url = request.url
+            return redirect(url_for(f"{app_name}.login", next=next_url))
+        return wrapper
+    return decorator
+
+# Custom decorator for role-based access
+def role_required(roles, app_name):
+    def wrapper(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return redirect(url_for(f"{app_name}.login", next=request.url))
+            if not hasattr(current_user, 'role') or current_user.role not in roles:
+                flash('You do not have permission to access this page.', 'danger')
+                # Redirect to a safe page instead of index to avoid potential loops
+                return redirect(url_for(f"{app_name}.unauthorized"))
+            return f(*args, **kwargs)
+        return decorated_function
+    return wrapper
+
 # Load environment variables from .env file if it exists
 load_dotenv()
-
-
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'abz-hardware-secret-key-2024-secure-random-string'

@@ -9,14 +9,18 @@ This script will:
 
 Run this script after adding the accessible_branch_ids column to your database.
 """
-
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from main import app
-from models import User
-from extensions import db
+# Add project root to path
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+sys.path.append(root_path)
+
+from config.dbconfig import db
+from models.admin import User
+
+from main import create_app
+app = create_app()
 
 def migrate_branch_access():
     """Migrate NULL accessible_branch_ids to empty list"""

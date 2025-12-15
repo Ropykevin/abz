@@ -182,7 +182,8 @@
                 <p>Access The Admin Dashboard</p>
             </div>
             
-            <form action="/login" method="POST">
+            <form action="{{ url_for('app_admin.login', next=request.args.get('next')) }}" method="POST">
+                <input type="hidden" name="next" value="{{ request.args.get('next') }}">
                 <div class="input-group">
                     <span class="input-group-text"><i class="fas fa-user"></i></span>
                     <input type="text" class="form-control" id="username" placeholder="Email" name="email" required>

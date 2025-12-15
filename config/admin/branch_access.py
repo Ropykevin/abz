@@ -7,7 +7,7 @@ This module provides utilities for managing and checking user branch access.
 from functools import wraps
 from flask import flash, redirect, url_for, request
 from flask_login import current_user
-from models import User, Branch
+from models.admin import User, Branch
 from sqlalchemy import or_
 
 

@@ -1,11 +1,15 @@
-from dbconfig import db
-from models import User
-from flask import Flask
-from config import Config
+import os
+import sys
 
-app = Flask(__name__)
-app.config.from_object(Config)
-db.init_app(app)
+# Add project root to path
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+sys.path.append(root_path)
+
+from config.dbconfig import db
+from models.admin import User
+
+from main import create_app
+app = create_app()
 
 with app.app_context():
     print("=== Current Users in Database ===")

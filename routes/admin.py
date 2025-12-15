@@ -1,4 +1,3 @@
-
 from decimal import Decimal
 from flask import render_template, request, redirect, url_for, flash, jsonify, make_response
 import csv
@@ -8,7 +7,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from io import BytesIO, StringIO
-from functools import wraps
 from sqlalchemy.exc import IntegrityError
 import os
 from sqlalchemy import or_, func, and_, case
@@ -18,11 +16,12 @@ from models.admin import Branch, Category, User, OrderType, Order, OrderItem, St
 
 #New Compied Code
 from flask import Blueprint
-from config.appconfig import Config, login_manager,current_user,login_required,datetime,timedelta
+from config.appconfig import Config, login_manager,current_user,login_user,login_required,role_required,datetime,timedelta
 from config.dbconfig import db,EAT
 
 app_admin = Blueprint('app_admin', __name__)
-login_manager.login_view = 'app_admin.login'
+
+# login_manager.login_view = 'app_admin.login'
 
 # Configuration for file uploads (keeping for fallback)
 UPLOAD_FOLDER = Config().UPLOAD_FOLDER
@@ -54,25 +53,9 @@ def format_stock(value):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-
-# Custom decorator for role-based access
-def role_required(roles):
-    def wrapper(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if not current_user.is_authenticated:
-                return redirect(url_for('app_admin.login', next=request.url))
-            if not hasattr(current_user, 'role') or current_user.role not in roles:
-                flash('You do not have permission to access this page.', 'danger')
-                # Redirect to a safe page instead of index to avoid potential loops
-                return redirect(url_for('app_admin.unauthorized'))
-            return f(*args, **kwargs)
-        return decorated_function
-    return wrapper
-
 @app_admin.route("/")
-@login_required
-@role_required(['admin']) 
+@login_required('app_admin')
+@role_required(['admin'],'app_admin') 
 def index():
     print(f"🔍 Index route accessed - User: {current_user.email if current_user.is_authenticated else 'Not authenticated'}")
     print(f"🔍 User role: {current_user.role if current_user.is_authenticated else 'No role'}")
@@ -415,7 +398,7 @@ def index():
         monthly_expenses = 0
     
     try:
-        return render_template("admin_portal.index.html", 
+        return render_template("admin_portal/index.html", 
                              total_users=total_users,
                              total_products=total_products,
                              total_orders=total_orders,
@@ -463,21 +446,24 @@ def login():
         
         if not email or not password:
             flash('Please provide both email and password.', 'danger')
-            return render_template("admin_portal.login.html")
+            return render_template("admin_portal/login.html")
         
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=email, password=password).first()
         
-        if user and user.check_password(password):
+        # if user and user.check_password(password):
+        if user:
             login_user(user, remember=True)
             next_page = request.args.get('next')
+            print("-------------------------------",next_page)
+            return str(next_page)
             if next_page and next_page.startswith('/'):
                 return redirect(next_page)
             return redirect(url_for('app_admin.index'))
         else:
             flash('Invalid email or password. Please try again.', 'danger')
-            return render_template("admin_portal.login.html")
+            return render_template("admin_portal/login.html")
     
-    return render_template("admin_portal.login.html")
+    return render_template("admin_portal/login.html")
 
 @app_admin.route('/register', methods=['GET', 'POST'])
 def register():
@@ -537,7 +523,7 @@ def register():
             flash('An error occurred while registering. Please try again.', 'danger')
             return redirect(url_for('app_admin.register'))
     
-    return render_template("admin_portal.register.html")
+    return render_template("admin_portal/register.html")
 
 @app_admin.route('/logout')
 @login_required
@@ -558,7 +544,7 @@ def test_auth():
 
 @app_admin.route('/debug_order/<int:order_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def debug_order(order_id):
     try:
         order = Order.query.get_or_404(order_id)
@@ -598,9 +584,9 @@ def unauthorized():
 # Example of a protected route
 @app_admin.route("/dashboard")
 @login_required
-@role_required(['admin'])  # Only admin and manager can access
+@role_required(['admin'],'admin_app')  # Only admin and manager can access
 def dashboard():
-    return render_template("admin_portal.dashboard.html")
+    return render_template("admin_portal/dashboard.html")
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -623,6 +609,12 @@ def upload_to_cloudinary(file):
     except Exception as e:
         print(f"Error uploading to Cloudinary: {e}")
         return None
+
+
+
+
+
+
 
 def delete_from_cloudinary(public_id):
     """Delete image from Cloudinary using public_id"""
@@ -682,7 +674,7 @@ def inject_user_data():
 # Categories Routes
 @app_admin.route('/products')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def products():
     categories = Category.query.order_by(Category.name).all()
     subcategories = SubCategory.query.order_by(SubCategory.name).all()
@@ -771,7 +763,7 @@ def products():
 
 @app_admin.route('/export_products_csv')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def export_products_csv():
     try:
         # Get branch filter from query parameter
@@ -840,7 +832,7 @@ def export_products_csv():
 
 @app_admin.route('/export_products_by_category_csv')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def export_products_by_category_csv():
     try:
         # Get branch filter from query parameter
@@ -995,7 +987,7 @@ def export_products_by_category_csv():
 
 @app_admin.route('/export_products_by_category_pdf')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def export_products_by_category_pdf():
     try:
         # Get branch filter from query parameter
@@ -1241,7 +1233,7 @@ def export_products_by_category_pdf():
 
 @app_admin.route('/branch_products/<int:branch_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def branch_products(branch_id):
     # Get the specific branch
     branch = Branch.query.get_or_404(branch_id)
@@ -1321,7 +1313,7 @@ def branch_products(branch_id):
 
 @app_admin.route('/add_category', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_category():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -1363,7 +1355,7 @@ def add_category():
 
 @app_admin.route('/edit_category/<int:id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_category(id):
     category = Category.query.get_or_404(id)
     if request.method == 'POST':
@@ -1407,7 +1399,7 @@ def edit_category(id):
 
 @app_admin.route('/delete_category/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_category(id):
     try:
         category = Category.query.get_or_404(id)
@@ -1430,7 +1422,7 @@ def delete_category(id):
 # ProductCatalog Catalog Routes
 @app_admin.route('/product_catalog')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def product_catalog():
     categories = Category.query.order_by(Category.name).all()
     subcategories = SubCategory.query.order_by(SubCategory.name).all()
@@ -1495,7 +1487,7 @@ def product_catalog():
 
 @app_admin.route('/add_product_to_catalog', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_product_to_catalog():
     # Get form data
     name = request.form.get('name')
@@ -1540,7 +1532,7 @@ def add_product_to_catalog():
 
 @app_admin.route('/edit_catalog_product/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_catalog_product(id):
     catalog_product = ProductCatalog.query.get_or_404(id)
     
@@ -1581,7 +1573,7 @@ def edit_catalog_product(id):
 
 @app_admin.route('/delete_catalog_product/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_catalog_product(id):
     try:
         catalog_product = ProductCatalog.query.get_or_404(id)
@@ -1614,7 +1606,7 @@ def delete_catalog_product(id):
 
 @app_admin.route('/get_catalog_product/<int:id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def get_catalog_product(id):
     catalog_product = ProductCatalog.query.get_or_404(id)
     return jsonify({
@@ -1628,7 +1620,7 @@ def get_catalog_product(id):
 # Branch ProductCatalogs Routes
 @app_admin.route('/add_branch_product', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_branch_product():
     # Get form data
     catalog_id = request.form.get('catalog_id')
@@ -1684,7 +1676,7 @@ def add_branch_product():
 
 @app_admin.route('/add_new_product_to_branch', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_new_product_to_branch():
     """Add a new product to catalog and then add it to the specified branch"""
     try:
@@ -1785,7 +1777,7 @@ def add_new_product_to_branch():
 
 @app_admin.route('/edit_branch_product/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_branch_product(id):
     branch_product = BranchProduct.query.get_or_404(id)
     
@@ -1813,7 +1805,7 @@ def edit_branch_product(id):
 
 @app_admin.route('/delete_branch_product/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_branch_product(id):
     try:
         branch_product = BranchProduct.query.get_or_404(id)
@@ -1849,7 +1841,7 @@ def delete_branch_product(id):
 
 @app_admin.route('/sales_performance')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def sales_performance():
     """Sales performance page showing salespeople's order counts and revenue"""
     try:
@@ -1983,7 +1975,7 @@ def sales_performance():
 
 @app_admin.route('/salesperson_orders/<int:user_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def salesperson_orders(user_id):
     """Show detailed orders for a specific salesperson"""
     try:
@@ -2135,7 +2127,7 @@ def salesperson_orders(user_id):
 
 @app_admin.route('/get_branch_product/<int:id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def get_branch_product(id):
     branch_product = BranchProduct.query.get_or_404(id)
     return jsonify({
@@ -2151,7 +2143,7 @@ def get_branch_product(id):
 
 @app_admin.route('/get_catalog_products_for_branch')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def get_catalog_products_for_branch():
     branch_id = request.args.get('branch_id', type=int)
     search = request.args.get('search', '')
@@ -2182,7 +2174,7 @@ def get_catalog_products_for_branch():
 # DEPRECATED: Legacy product route - use ProductCatalog instead
 # @app_admin.route('/add_product', methods=['POST'])
 # @login_required
-# @role_required(['admin'])
+# @role_required(['admin'],'admin_app')
 # def add_product():
     # Get form data
     name = request.form.get('name')
@@ -2242,7 +2234,7 @@ def get_catalog_products_for_branch():
 # DEPRECATED: Legacy product route - use ProductCatalog instead
 # @app_admin.route('/get_product/<int:id>')
 # @login_required
-# @role_required(['admin'])
+# @role_required(['admin'],'admin_app')
 # def get_product(id):
 #     product = ProductCatalog.query.get_or_404(id)
 #     return jsonify({
@@ -2261,7 +2253,7 @@ def get_catalog_products_for_branch():
 # DEPRECATED: Legacy product route - use ProductCatalog instead
 # @app_admin.route('/edit_product/<int:id>', methods=['POST'])
 # @login_required
-# @role_required(['admin'])
+# @role_required(['admin'],'admin_app')
 # def edit_product(id):
     product = ProductCatalog.query.get_or_404(id)
     
@@ -2309,7 +2301,7 @@ def get_catalog_products_for_branch():
 
 @app_admin.route('/delete_product/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_product(id):
     try:
         product = ProductCatalog.query.get_or_404(id)
@@ -2344,7 +2336,7 @@ def delete_product(id):
 # Stock Management Routes
 @app_admin.route('/add_stock/<int:branch_product_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_stock(branch_product_id):
     branch_product = BranchProduct.query.get_or_404(branch_product_id)
     
@@ -2384,7 +2376,7 @@ def add_stock(branch_product_id):
 
 @app_admin.route('/remove_stock/<int:branch_product_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def remove_stock(branch_product_id):
     branch_product = BranchProduct.query.get_or_404(branch_product_id)
     
@@ -2430,7 +2422,7 @@ def remove_stock(branch_product_id):
 
 @app_admin.route('/stock_history/<int:branch_product_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def stock_history(branch_product_id):
     branch_product = BranchProduct.query.get_or_404(branch_product_id)
     transactions = StockTransaction.query.filter_by(branch_productid=branch_product_id).order_by(StockTransaction.created_at.desc()).all()
@@ -2443,7 +2435,7 @@ def stock_history(branch_product_id):
 
 @app_admin.route('/export_stock_history_pdf/<int:branch_product_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def export_stock_history_pdf(branch_product_id):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
@@ -2638,7 +2630,7 @@ def export_stock_history_pdf(branch_product_id):
 
 @app_admin.route('/toggle_display/<int:branch_product_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def toggle_display(branch_product_id):
     try:
         branch_product = BranchProduct.query.get_or_404(branch_product_id)
@@ -2657,7 +2649,7 @@ def toggle_display(branch_product_id):
 # User Management Routes
 @app_admin.route('/users')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def users():
     try:
         print("Users route accessed")
@@ -2688,7 +2680,7 @@ def users():
 
 @app_admin.route('/add_user', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_user():
     if request.method == 'POST':
         # Get form data
@@ -2748,7 +2740,7 @@ def add_user():
 
 @app_admin.route('/edit_user/<int:id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_user(id):
     user = User.query.get_or_404(id)
     
@@ -2809,7 +2801,7 @@ def edit_user(id):
 
 @app_admin.route('/delete_user/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_user(id):
     try:
         user = User.query.get_or_404(id)
@@ -2841,7 +2833,7 @@ def delete_user(id):
 # Orders Routes
 @app_admin.route('/orders')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def orders():
     try:
         print("Orders route accessed")
@@ -3098,7 +3090,7 @@ def orders():
 
 @app_admin.route('/order_details/<int:order_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def order_details(order_id):
     try:
         # Eagerly load relationships to avoid N+1 queries
@@ -3163,7 +3155,7 @@ def order_details(order_id):
 
 @app_admin.route('/approve_order/<int:order_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def approve_order(order_id):
     try:
         order = Order.query.get_or_404(order_id)
@@ -3180,7 +3172,7 @@ def approve_order(order_id):
 
 @app_admin.route('/reject_order/<int:order_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def reject_order(order_id):
     try:
         order = Order.query.get_or_404(order_id)
@@ -3198,7 +3190,7 @@ def reject_order(order_id):
 # Profit & Loss Routes
 @app_admin.route('/profit_loss')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def profit_loss():
     try:
         # Get date range from query parameters
@@ -3358,7 +3350,7 @@ def profit_loss():
 
 @app_admin.route('/balance_sheet')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def balance_sheet():
     try:
         # Get date as of which to show balance sheet
@@ -3470,7 +3462,7 @@ def balance_sheet():
 # Branch Management Routes
 @app_admin.route('/branches')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def branches():
     try:
         print("Branches route accessed")
@@ -3530,7 +3522,7 @@ def branches():
 
 @app_admin.route('/debug_payment_status')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def debug_payment_status():
     try:
         # Get all orders with their payment status
@@ -3576,7 +3568,7 @@ def debug_payment_status():
 
 @app_admin.route('/debug_branches_revenue')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def debug_branches_revenue():
     try:
         branches = Branch.query.all()
@@ -3630,7 +3622,7 @@ def debug_branches_revenue():
 
 @app_admin.route('/add_branch', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_branch():
     if request.method == 'POST':
         # Get form data
@@ -3668,7 +3660,7 @@ def add_branch():
 
 @app_admin.route('/edit_branch/<int:id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_branch(id):
     branch = Branch.query.get_or_404(id)
     
@@ -3705,7 +3697,7 @@ def edit_branch(id):
 
 @app_admin.route('/delete_branch/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_branch(id):
     try:
         branch = Branch.query.get_or_404(id)
@@ -3731,7 +3723,7 @@ def delete_branch(id):
 
 @app_admin.route('/branch_details/<int:branch_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def branch_details(branch_id):
     try:
         branch = Branch.query.get_or_404(branch_id)
@@ -3796,7 +3788,7 @@ def branch_details(branch_id):
 # Category Management Routes
 @app_admin.route('/categories')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def categories():
     try:
         import time
@@ -3928,7 +3920,7 @@ def categories():
 
 @app_admin.route('/category_details/<int:category_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def category_details(category_id):
     try:
         category = Category.query.get_or_404(category_id)
@@ -3979,7 +3971,7 @@ def category_details(category_id):
 # Subcategory Management Routes
 @app_admin.route('/subcategories')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def subcategories():
     try:
         # Pagination parameters
@@ -4008,7 +4000,7 @@ def subcategories():
 
 @app_admin.route('/add_subcategory', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_subcategory():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -4064,7 +4056,7 @@ def add_subcategory():
 
 @app_admin.route('/edit_subcategory/<int:id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_subcategory(id):
     subcategory = SubCategory.query.get_or_404(id)
     
@@ -4121,7 +4113,7 @@ def edit_subcategory(id):
 
 @app_admin.route('/delete_subcategory/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_subcategory(id):
     try:
         subcategory = SubCategory.query.get_or_404(id)
@@ -4151,7 +4143,7 @@ def delete_subcategory(id):
 
 @app_admin.route('/subcategory_details/<int:subcategory_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def subcategory_details(subcategory_id):
     try:
         subcategory = SubCategory.query.get_or_404(subcategory_id)
@@ -4192,7 +4184,7 @@ def subcategory_details(subcategory_id):
 # ProductCatalog Description Management Routes
 @app_admin.route('/product_descriptions/<int:product_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def product_descriptions(product_id):
     try:
         product = ProductCatalog.query.get_or_404(product_id)
@@ -4214,7 +4206,7 @@ def product_descriptions(product_id):
 
 @app_admin.route('/add_product_description/<int:product_id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_product_description(product_id):
     product = ProductCatalog.query.get_or_404(product_id)
     
@@ -4252,7 +4244,7 @@ def add_product_description(product_id):
 
 @app_admin.route('/edit_product_description/<int:description_id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_product_description(description_id):
     description = ProductDescription.query.get_or_404(description_id)
     
@@ -4288,7 +4280,7 @@ def edit_product_description(description_id):
 
 @app_admin.route('/delete_product_description/<int:description_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_product_description(description_id):
     try:
         description = ProductDescription.query.get_or_404(description_id)
@@ -4308,7 +4300,7 @@ def delete_product_description(description_id):
 # Expense Management Routes
 @app_admin.route('/expenses')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def expenses():
     page = request.args.get('page', 1, type=int)
     per_page = 10
@@ -4355,7 +4347,7 @@ def expenses():
 
 @app_admin.route('/add_expense', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_expense():
     if request.method == 'POST':
         try:
@@ -4408,7 +4400,7 @@ def add_expense():
 
 @app_admin.route('/edit_expense/<int:id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_expense(id):
     expense = Expense.query.get_or_404(id)
     
@@ -4448,7 +4440,7 @@ def edit_expense(id):
 
 @app_admin.route('/approve_expense/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def approve_expense(id):
     expense = Expense.query.get_or_404(id)
     
@@ -4470,7 +4462,7 @@ def approve_expense(id):
 
 @app_admin.route('/reject_expense/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def reject_expense(id):
     expense = Expense.query.get_or_404(id)
     
@@ -4492,7 +4484,7 @@ def reject_expense(id):
 
 @app_admin.route('/delete_expense/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_expense(id):
     expense = Expense.query.get_or_404(id)
     
@@ -4514,7 +4506,7 @@ def delete_expense(id):
 
 @app_admin.route('/expense_details/<int:id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def expense_details(id):
     expense = Expense.query.get_or_404(id)
     
@@ -4527,7 +4519,7 @@ def expense_details(id):
 # Supplier Management Routes
 @app_admin.route('/suppliers')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def suppliers():
     try:
         # Pagination parameters
@@ -4569,7 +4561,7 @@ def suppliers():
 
 @app_admin.route('/add_supplier', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_supplier():
     if request.method == 'POST':
         try:
@@ -4625,7 +4617,7 @@ def add_supplier():
 
 @app_admin.route('/edit_supplier/<int:id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_supplier(id):
     supplier = Supplier.query.get_or_404(id)
     
@@ -4679,7 +4671,7 @@ def edit_supplier(id):
 
 @app_admin.route('/delete_supplier/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_supplier(id):
     try:
         supplier = Supplier.query.get_or_404(id)
@@ -4702,7 +4694,7 @@ def delete_supplier(id):
 # Purchase Order Routes
 @app_admin.route('/purchase_orders')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def purchase_orders():
     try:
         # Pagination parameters
@@ -4767,7 +4759,7 @@ def purchase_orders():
 
 @app_admin.route('/add_purchase_order', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_purchase_order():
     if request.method == 'POST':
         try:
@@ -4841,7 +4833,7 @@ def add_purchase_order():
 
 @app_admin.route('/edit_purchase_order/<int:id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_purchase_order(id):
     try:
         print(f"🔍 Attempting to access edit_purchase_order for ID: {id}")
@@ -5034,7 +5026,7 @@ def test_db_connection():
 
 @app_admin.route('/delete_purchase_order/<int:id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_purchase_order(id):
     try:
         po = PurchaseOrder.query.get_or_404(id)
@@ -5055,7 +5047,7 @@ def delete_purchase_order(id):
 
 @app_admin.route('/add_po_item/<int:po_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_po_item(po_id):
     try:
         po = PurchaseOrder.query.get_or_404(po_id)
@@ -5112,7 +5104,7 @@ def add_po_item(po_id):
 
 @app_admin.route('/edit_po_item/<int:item_id>', methods=['GET', 'POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_po_item(item_id):
     try:
         print(f"🔍 Attempting to edit PO item with ID: {item_id}")
@@ -5215,7 +5207,7 @@ def edit_po_item(item_id):
 
 @app_admin.route('/delete_po_item/<int:item_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_po_item(item_id):
     try:
         item = PurchaseOrderItem.query.get_or_404(item_id)
@@ -5242,7 +5234,7 @@ def delete_po_item(item_id):
 
 @app_admin.route('/receive_po/<int:po_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def receive_po(po_id):
     try:
         po = PurchaseOrder.query.get_or_404(po_id)
@@ -5276,7 +5268,7 @@ def receive_po(po_id):
 
 @app_admin.route('/purchase_order_details/<int:po_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def purchase_order_details(po_id):
     try:
                 
@@ -5304,7 +5296,7 @@ def purchase_order_details(po_id):
 
 @app_admin.route('/export_purchase_order_pdf/<int:po_id>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def export_purchase_order_pdf(po_id):
     try:
         # Get the purchase order
@@ -5564,7 +5556,7 @@ def export_purchase_order_pdf(po_id):
 
 @app_admin.route('/add_purchase_order_item/<int:po_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def add_purchase_order_item(po_id):
     try:
         po = PurchaseOrder.query.get_or_404(po_id)
@@ -5615,7 +5607,7 @@ def add_purchase_order_item(po_id):
 
 @app_admin.route('/delete_purchase_order_item/<int:item_id>', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_purchase_order_item(item_id):
     try:
         po_item = PurchaseOrderItem.query.get_or_404(item_id)
@@ -5703,7 +5695,7 @@ def change_password():
 # Sales Report Route - Matching abz-cashier-portal structure
 @app_admin.route('/sales_report')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def sales_report():
     from datetime import datetime, timedelta
     
@@ -5810,7 +5802,7 @@ def sales_report():
 
 @app_admin.route('/sales_report/daily-details/<date>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def daily_sales_details(date):
     """Show detailed breakdown of sales for a specific date"""
     try:
@@ -5867,7 +5859,7 @@ def daily_sales_details(date):
 
 @app_admin.route('/export_daily_sales_pdf/<date>')
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def export_daily_sales_pdf(date):
     """Export daily sales report as PDF"""
     try:
@@ -6205,7 +6197,7 @@ def export_daily_sales_pdf(date):
 
 @app_admin.route('/delete_payment', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def delete_payment():
     """Delete a payment from an order"""
     try:
@@ -6240,7 +6232,7 @@ def delete_payment():
 
 @app_admin.route('/edit_payment', methods=['POST'])
 @login_required
-@role_required(['admin'])
+@role_required(['admin'],'admin_app')
 def edit_payment():
     """Edit a payment in an order"""
     try:
