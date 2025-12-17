@@ -10,30 +10,34 @@ login_manager.login_message = 'Please log in to access this page.'
 
 # Custom Login required
 def login_required(app_name):
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
+    def loginn_decorator(view_func):
+        @wraps(view_func)
+        def wrapped_view(*args, **kwargs):
             if current_user.is_authenticated:
-                return f(*args, **kwargs)
+                return view_func(*args, **kwargs)
             next_url = request.url
+            print("Next URL: ", next_url)
             return redirect(url_for(f"{app_name}.login", next=next_url))
-        return wrapper
-    return decorator
+        return wrapped_view
+    return loginn_decorator
+
 
 # Custom decorator for role-based access
 def role_required(roles, app_name):
-    def wrapper(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
+    def role_decorator(view_func):
+        @wraps(view_func)
+        def wrapped_view(*args, **kwargs):
             if not current_user.is_authenticated:
                 return redirect(url_for(f"{app_name}.login", next=request.url))
+
             if not hasattr(current_user, 'role') or current_user.role not in roles:
                 flash('You do not have permission to access this page.', 'danger')
-                # Redirect to a safe page instead of index to avoid potential loops
                 return redirect(url_for(f"{app_name}.unauthorized"))
-            return f(*args, **kwargs)
-        return decorated_function
-    return wrapper
+
+            return view_func(*args, **kwargs)
+        return wrapped_view
+    return role_decorator
+
 
 # Load environment variables from .env file if it exists
 load_dotenv()
