@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "stores_portal/base.html" %}
 
 {% block title %}Branch Products - Store Keeper Portal{% endblock %}
 {% block page_title %}Branch Products{% endblock %}
@@ -6,7 +6,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Branch Products</h2>
-    <a href="{{ url_for('add_branch_product') }}" class="btn btn-primary">
+    <a href="{{ url_for('app_store.add_branch_product') }}" class="btn btn-primary">
         <i class="fas fa-plus me-2"></i>
         Add Product to Branch
     </a>
@@ -120,7 +120,7 @@
                     <i class="fas fa-search me-2"></i>
                     Filter
                 </button>
-                <a href="{{ url_for('branch_products') }}" class="btn btn-outline-secondary">
+                <a href="{{ url_for('app_store.branch_products') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-times me-2"></i>
                     Clear
                 </a>
@@ -199,12 +199,12 @@
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{{ url_for('edit_branch_product', branch_product_id=bp.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ url_for('app_store.edit_branch_product', branch_product_id=bp.id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="adjustStock({{ bp.id }}, '{{ bp.catalog_product.name }}', {{ "%.15g"|format(bp.stock or 0) }})">
+                                    <a href="{{ url_for('app_store.adjust_stock', branch_product_id=bp.id) }}" class="btn btn-sm btn-outline-info">
                                         <i class="fas fa-plus-minus"></i>
-                                    </button>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -219,7 +219,7 @@
                     <ul class="pagination justify-content-center">
                         {% if branch_products.has_prev %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('branch_products', page=branch_products.prev_num, search=request.args.get('search', ''), branch_id=request.args.get('branch_id', '')) }}">Previous</a>
+                                <a class="page-link" href="{{ url_for('app_store.branch_products', page=branch_products.prev_num, search=request.args.get('search', ''), branch_id=request.args.get('branch_id', '')) }}">Previous</a>
                             </li>
                         {% endif %}
                         
@@ -227,7 +227,7 @@
                             {% if page_num %}
                                 {% if page_num != branch_products.page %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('branch_products', page=page_num, search=request.args.get('search', ''), branch_id=request.args.get('branch_id', '')) }}">{{ page_num }}</a>
+                                        <a class="page-link" href="{{ url_for('app_store.branch_products', page=page_num, search=request.args.get('search', ''), branch_id=request.args.get('branch_id', '')) }}">{{ page_num }}</a>
                                     </li>
                                 {% else %}
                                     <li class="page-item active">
@@ -243,7 +243,7 @@
                         
                         {% if branch_products.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('branch_products', page=branch_products.next_num, search=request.args.get('search', ''), branch_id=request.args.get('branch_id', '')) }}">Next</a>
+                                <a class="page-link" href="{{ url_for('app_store.branch_products', page=branch_products.next_num, search=request.args.get('search', ''), branch_id=request.args.get('branch_id', '')) }}">Next</a>
                             </li>
                         {% endif %}
                     </ul>
@@ -254,7 +254,7 @@
                 <i class="fas fa-warehouse fa-3x text-muted mb-3"></i>
                 <h5 class="text-muted">No branch products found</h5>
                 <p class="text-muted">Start by adding products to your branches.</p>
-                <a href="{{ url_for('add_branch_product') }}" class="btn btn-primary">
+                <a href="{{ url_for('app_store.add_branch_product') }}" class="btn btn-primary">
                     <i class="fas fa-plus me-2"></i>
                     Add First Product
                 </a>
@@ -314,7 +314,7 @@
 function adjustStock(branchProductId, productName, currentStock) {
     document.getElementById('productName').textContent = productName;
     document.getElementById('currentStock').textContent = currentStock;
-    document.getElementById('stockForm').action = '{{ url_for("adjust_stock", branch_product_id=0) }}'.replace('0', branchProductId);
+    document.getElementById('stockForm').action = '{{ url_for("app_store.adjust_stock", branch_product_id=0) }}'.replace('0', branchProductId);
     new bootstrap.Modal(document.getElementById('stockModal')).show();
 }
 </script>

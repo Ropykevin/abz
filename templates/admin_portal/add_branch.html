@@ -1,4 +1,4 @@
-{% extends "navbars.html" %}
+{% extends "admin_portal/navbars.html" %}
 
 {% block content %}
 <div class="container">
@@ -9,7 +9,7 @@
         <h6 class="op-7 mb-2">Create a new branch location</h6>
       </div>
       <div class="ms-md-auto py-2 py-md-0">
-        <a href="{{ url_for('branches') }}" class="btn btn-secondary btn-round">
+        <a href="{{ url_for('app_admin.branches') }}" class="btn btn-secondary btn-round">
           <i class="fas fa-arrow-left"></i> Back to Branches
         </a>
       </div>
@@ -24,7 +24,7 @@
             </div>
           </div>
           <div class="card-body">
-            <form method="POST" action="{{ url_for('add_branch') }}">
+            <form method="POST" action="{{ url_for('app_admin.add_branch') }}">
               <div class="row">
                 <div class="col-md-6">
                   <div class="form-group">
@@ -62,7 +62,7 @@
                     <button type="submit" class="btn btn-primary btn-round">
                       <i class="fas fa-save"></i> Create Branch
                     </button>
-                    <a href="{{ url_for('branches') }}" class="btn btn-secondary btn-round">
+                    <a href="{{ url_for('app_admin.branches') }}" class="btn btn-secondary btn-round">
                       <i class="fas fa-times"></i> Cancel
                     </a>
                   </div>

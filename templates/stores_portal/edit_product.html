@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "stores_portal/base.html" %}
 
 {% block title %}Edit Product - Store Keeper Portal{% endblock %}
 {% block page_title %}Edit Product{% endblock %}
@@ -74,7 +74,7 @@
                     </div>
 
                     <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('products') }}" class="btn btn-secondary">
+                        <a href="{{ url_for('app_store.products') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>
                             Back to Products
                         </a>

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "sales_portal/base.html" %}
 
 {% block title %}Payment #{{ payment.id }} - ABZ Sales Portal{% endblock %}
 
@@ -7,10 +7,10 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0">Payment #{{ payment.id }}</h1>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('payments_page') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('app_sales.payments_page') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Back to Payments
             </a>
-            <a href="{{ url_for('order_detail', order_id=payment.order_id) }}" class="btn btn-outline-info">
+            <a href="{{ url_for('app_sales.order_detail', order_id=payment.order_id) }}" class="btn btn-outline-info">
                 <i class="fas fa-shopping-cart"></i> View Order
             </a>
         </div>
@@ -30,7 +30,7 @@
                             <p class="mb-1"><strong>{{ payment.customer_name }}</strong></p>
                             <p class="mb-1 text-muted">Payment ID: #{{ payment.id }}</p>
                             <p class="mb-1 text-muted">Order ID: 
-                                <a href="{{ url_for('order_detail', order_id=payment.order_id) }}">#{{ payment.order_id }}</a>
+                                <a href="{{ url_for('app_sales.order_detail', order_id=payment.order_id) }}">#{{ payment.order_id }}</a>
                             </p>
                         </div>
                         <div class="col-md-6 text-md-end">
@@ -109,10 +109,10 @@
                             <i class="fas fa-undo"></i> Refund Payment
                         </button>
                         {% endif %}
-                        <a href="{{ url_for('receipts_page') }}?payment_id={{ payment.id }}" class="btn btn-outline-success">
+                        <a href="{{ url_for('app_sales.receipts_page') }}?payment_id={{ payment.id }}" class="btn btn-outline-success">
                             <i class="fas fa-receipt"></i> View Receipt
                         </a>
-                        <a href="{{ url_for('process_payment', order_id=payment.order_id) }}" class="btn btn-outline-primary">
+                        <a href="{{ url_for('app_sales.process_payment', order_id=payment.order_id) }}" class="btn btn-outline-primary">
                             <i class="fas fa-credit-card"></i> Make Additional Payment
                         </a>
                     </div>
@@ -126,13 +126,13 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('order_detail', order_id=payment.order_id) }}" class="btn btn-outline-info btn-sm">
+                        <a href="{{ url_for('app_sales.order_detail', order_id=payment.order_id) }}" class="btn btn-outline-info btn-sm">
                             <i class="fas fa-shopping-cart"></i> View Order
                         </a>
-                        <a href="{{ url_for('invoices_page') }}?order_id={{ payment.order_id }}" class="btn btn-outline-secondary btn-sm">
+                        <a href="{{ url_for('app_sales.invoices_page') }}?order_id={{ payment.order_id }}" class="btn btn-outline-secondary btn-sm">
                             <i class="fas fa-file-invoice"></i> View Invoice
                         </a>
-                        <a href="{{ url_for('receipts_page') }}?order_id={{ payment.order_id }}" class="btn btn-outline-success btn-sm">
+                        <a href="{{ url_for('app_sales.receipts_page') }}?order_id={{ payment.order_id }}" class="btn btn-outline-success btn-sm">
                             <i class="fas fa-receipt"></i> View Receipts
                         </a>
                     </div>
@@ -176,7 +176,7 @@ function refundPayment(paymentId) {
 document.getElementById('confirmRefund').addEventListener('click', function() {
     if (!currentPaymentId) return;
     
-    fetch(`/payments/${currentPaymentId}/refund`, {
+    fetch(`{{url_for("app_sales.payments_page")}}/${currentPaymentId}/refund`, {
         method: 'POST',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',

@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "sales_portal/base.html" %}
 {% block title %}Walk-in Orders - ABZ Hardware{% endblock %}
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex flex-row justify-content-between align-items-center mb-4">
         <h2 class="mb-0">Walk-in Orders</h2>
         <div class="d-flex flex-row gap-2">
-            <a href="{{ url_for('create_order') }}" class="btn btn-primary">
+            <a href="{{ url_for('app_sales.create_order') }}" class="btn btn-primary">
                 <i class="bi bi-plus-circle me-1"></i>Create New Walk-in Order
             </a>
         </div>
@@ -53,7 +53,7 @@
                         {% for order in orders %}
                         <tr>
                             <td>
-                                <a href="{{ url_for('order_detail', order_id=order.id) }}" class="text-decoration-none">
+                                <a href="{{ url_for('app_sales.order_detail', order_id=order.id) }}" class="text-decoration-none">
                                     #{{ order.id }}
                                 </a>
                             </td>
@@ -67,11 +67,11 @@
                             <td class="d-none d-md-table-cell">{{ order.created_at }}</td>
                             <td>
                                 <div class="d-flex flex-row gap-1">
-                                    <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-sm btn-info">
+                                    <a href="{{ url_for('app_sales.order_detail', order_id=order.id) }}" class="btn btn-sm btn-info">
                                         <i class="bi bi-eye"></i><span class="d-none d-sm-inline ms-1">View</span>
                                     </a>
                                     {% if order.status == 'Pending' %}
-                                        <a href="{{ url_for('edit_order', order_id=order.id) }}" class="btn btn-sm btn-primary">
+                                        <a href="{{ url_for('app_sales.edit_order', order_id=order.id) }}" class="btn btn-sm btn-primary">
                                             <i class="bi bi-pencil"></i><span class="d-none d-sm-inline ms-1">Edit</span>
                                         </a>
                                         <button class="btn btn-sm btn-danger" onclick="deleteOrder({{ order.id }})">
@@ -92,7 +92,7 @@
                 <ul class="pagination justify-content-center flex-wrap">
                     {% if pagination.has_prev %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('orders_page', page=pagination.prev_num, status=current_status) }}">Previous</a>
+                        <a class="page-link" href="{{ url_for('app_sales.orders_page', page=pagination.prev_num, status=current_status) }}">Previous</a>
                     </li>
                     {% endif %}
                     
@@ -100,7 +100,7 @@
                         {% if page_num %}
                             {% if page_num != pagination.page %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('orders_page', page=page_num, status=current_status) }}">{{ page_num }}</a>
+                                <a class="page-link" href="{{ url_for('app_sales.orders_page', page=page_num, status=current_status) }}">{{ page_num }}</a>
                             </li>
                             {% else %}
                             <li class="page-item active">
@@ -116,7 +116,7 @@
                     
                     {% if pagination.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('orders_page', page=pagination.next_num, status=current_status) }}">Next</a>
+                        <a class="page-link" href="{{ url_for('app_sales.orders_page', page=pagination.next_num, status=current_status) }}">Next</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -128,7 +128,7 @@
                 <i class="bi bi-cart-x display-1 text-muted mb-3"></i>
                 <h5 class="text-muted">No walk-in orders found</h5>
                 <p class="text-muted">Create your first walk-in order to get started.</p>
-                <a href="{{ url_for('create_order') }}" class="btn btn-primary">Create Order</a>
+                <a href="{{ url_for('app_sales.create_order') }}" class="btn btn-primary">Create Order</a>
             </div>
             {% endif %}
         </div>
@@ -152,7 +152,7 @@ function filterOrders() {
 
 function deleteOrder(orderId) {
     if (confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
-        fetch(`/orders/${orderId}/delete`, {
+        fetch(`{{url_for("app_sales.orders_page")}}/${orderId}/delete`, {
             method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'

@@ -1,4 +1,4 @@
-{% extends "navbars.html" %}
+{% extends "admin_portal/navbars.html" %}
 
 {% block content %}
 <div class="container">
@@ -9,7 +9,7 @@
         <h6 class="op-7 mb-2">Manage product subcategories and classifications</h6>
       </div>
       <div class="ms-md-auto py-2 py-md-0">
-        <a href="{{ url_for('add_subcategory') }}" class="btn btn-primary btn-round">
+        <a href="{{ url_for('app_admin.add_subcategory') }}" class="btn btn-primary btn-round">
           <i class="fas fa-plus"></i> Add New Subcategory
         </a>
       </div>
@@ -46,18 +46,19 @@
                   <tr>
                     <td>
                       {% if subcategory.image_url %}
-                        <img src="{{ subcategory.image_url }}" alt="{{ subcategory.name }}" 
-                             class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                      <img src="{{ subcategory.image_url }}" alt="{{ subcategory.name }}" class="img-thumbnail"
+                        style="width: 50px; height: 50px; object-fit: cover;">
                       {% else %}
-                        <div class="bg-light d-flex align-items-center justify-content-center rounded" 
-                             style="width: 50px; height: 50px;">
-                          <i class="fas fa-image text-muted"></i>
-                        </div>
+                      <div class="bg-light d-flex align-items-center justify-content-center rounded"
+                        style="width: 50px; height: 50px;">
+                        <i class="fas fa-image text-muted"></i>
+                      </div>
                       {% endif %}
                     </td>
                     <td>
                       <div class="d-flex align-items-center">
-                        <div class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center me-3">
+                        <div
+                          class="avatar-sm bg-primary rounded-circle d-flex align-items-center justify-content-center me-3">
                           <span class="text-white fw-bold">{{ subcategory.name[0] }}</span>
                         </div>
                         <div>
@@ -71,9 +72,10 @@
                     </td>
                     <td>
                       {% if subcategory.description %}
-                        <div>{{ subcategory.description[:50] }}{% if subcategory.description|length > 50 %}...{% endif %}</div>
+                      <div>{{ subcategory.description[:50] }}{% if subcategory.description|length > 50 %}...{% endif %}
+                      </div>
                       {% else %}
-                        <span class="text-muted">No description</span>
+                      <span class="text-muted">No description</span>
                       {% endif %}
                     </td>
                     <td>
@@ -84,21 +86,23 @@
                     </td>
                     <td>
                       <div class="btn-group" role="group">
-                        <a href="{{ url_for('subcategory_details', subcategory_id=subcategory.id) }}" class="btn btn-sm btn-outline-info" title="View Details">
+                        <a href="{{ url_for('app_admin.subcategory_details', subcategory_id=subcategory.id) }}"
+                          class="btn btn-sm btn-outline-info" title="View Details">
                           <i class="fas fa-eye"></i>
                         </a>
-                        <a href="{{ url_for('edit_subcategory', id=subcategory.id) }}" class="btn btn-sm btn-outline-primary" title="Edit Subcategory">
+                        <a href="{{ url_for('app_admin.edit_subcategory', id=subcategory.id) }}"
+                          class="btn btn-sm btn-outline-primary" title="Edit Subcategory">
                           <i class="fas fa-edit"></i>
                         </a>
                         {% if not subcategory.products %}
-                        <button type="button" class="btn btn-sm btn-outline-danger" 
-                                onclick="confirmDelete({{ subcategory.id }}, '{{ subcategory.name }}')" 
-                                title="Delete Subcategory">
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                          onclick="confirmDelete({{ subcategory.id }}, '{{ subcategory.name }}')"
+                          title="Delete Subcategory">
                           <i class="fas fa-trash"></i>
                         </button>
                         {% else %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled 
-                                title="Cannot delete subcategory with associated products">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled
+                          title="Cannot delete subcategory with associated products">
                           <i class="fas fa-trash"></i>
                         </button>
                         {% endif %}
@@ -116,33 +120,33 @@
               <ul class="pagination justify-content-center">
                 {% if pagination.has_prev %}
                 <li class="page-item">
-                  <a class="page-link" href="{{ url_for('subcategories', page=pagination.prev_num) }}">
+                  <a class="page-link" href="{{ url_for('app_admin.subcategories', page=pagination.prev_num) }}">
                     <i class="fas fa-chevron-left"></i> Previous
                   </a>
                 </li>
                 {% endif %}
-                
+
                 {% for page_num in pagination.iter_pages() %}
-                  {% if page_num %}
-                    {% if page_num != pagination.page %}
-                    <li class="page-item">
-                      <a class="page-link" href="{{ url_for('subcategories', page=page_num) }}">{{ page_num }}</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item active">
-                      <span class="page-link">{{ page_num }}</span>
-                    </li>
-                    {% endif %}
-                  {% else %}
-                    <li class="page-item disabled">
-                      <span class="page-link">...</span>
-                    </li>
-                  {% endif %}
+                {% if page_num %}
+                {% if page_num != pagination.page %}
+                <li class="page-item">
+                  <a class="page-link" href="{{ url_for('app_admin.subcategories', page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item active">
+                  <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">...</span>
+                </li>
+                {% endif %}
                 {% endfor %}
-                
+
                 {% if pagination.has_next %}
                 <li class="page-item">
-                  <a class="page-link" href="{{ url_for('subcategories', page=pagination.next_num) }}">
+                  <a class="page-link" href="{{ url_for('app_admin.subcategories', page=pagination.next_num) }}">
                     Next <i class="fas fa-chevron-right"></i>
                   </a>
                 </li>
@@ -156,7 +160,7 @@
               <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
               <h5 class="text-muted">No subcategories found</h5>
               <p class="text-muted">Get started by adding your first subcategory.</p>
-              <a href="{{ url_for('add_subcategory') }}" class="btn btn-primary btn-round">
+              <a href="{{ url_for('app_admin.add_subcategory') }}" class="btn btn-primary btn-round">
                 <i class="fas fa-plus"></i> Add First Subcategory
               </a>
             </div>
@@ -188,9 +192,9 @@
             <h4 class="card-title">
               {% set unique_categories = [] %}
               {% for subcategory in subcategories %}
-                {% if subcategory.category.id not in unique_categories %}
-                  {% set unique_categories = unique_categories + [subcategory.category.id] %}
-                {% endif %}
+              {% if subcategory.category.id not in unique_categories %}
+              {% set unique_categories = unique_categories + [subcategory.category.id] %}
+              {% endif %}
               {% endfor %}
               {{ unique_categories|length }}
             </h4>
@@ -207,7 +211,7 @@
             <h4 class="card-title">
               {% set total_products = 0 %}
               {% for subcategory in subcategories %}
-                {% set total_products = total_products + subcategory.products|length %}
+              {% set total_products = total_products + subcategory.products|length %}
               {% endfor %}
               {{ total_products }}
             </h4>
@@ -223,13 +227,13 @@
             </div>
             <h4 class="card-title">
               {% if subcategories|length > 0 %}
-                {% set total_products = 0 %}
-                {% for subcategory in subcategories %}
-                  {% set total_products = total_products + subcategory.products|length %}
-                {% endfor %}
-                {{ "%.1f"|format(total_products / subcategories|length) }}
+              {% set total_products = 0 %}
+              {% for subcategory in subcategories %}
+              {% set total_products = total_products + subcategory.products|length %}
+              {% endfor %}
+              {{ "%.1f"|format(total_products / subcategories|length) }}
               {% else %}
-                0
+              0
               {% endif %}
             </h4>
             <p class="card-category">Avg Products/Subcategory</p>
@@ -263,16 +267,16 @@
 </div>
 
 <script>
-function confirmDelete(subcategoryId, subcategoryName) {
+  function confirmDelete(subcategoryId, subcategoryName) {
     document.getElementById('subcategoryName').textContent = subcategoryName;
-    document.getElementById('deleteForm').action = "{{ url_for('delete_subcategory', id=0) }}".replace('0', subcategoryId);
-    
+    document.getElementById('deleteForm').action = "{{ url_for('app_admin.delete_subcategory', id=0) }}".replace('0', subcategoryId);
+
     const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
     deleteModal.show();
-}
+  }
 
-// Add some styling for the avatar
-document.addEventListener('DOMContentLoaded', function() {
+  // Add some styling for the avatar
+  document.addEventListener('DOMContentLoaded', function () {
     // Add custom styles for better table appearance
     const style = document.createElement('style');
     style.textContent = `
@@ -292,6 +296,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     `;
     document.head.appendChild(style);
-});
+  });
 </script>
-{% endblock %} 
+{% endblock %}

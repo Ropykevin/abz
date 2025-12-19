@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "cashier_portal/base.html" %}
 
 {% block title %}Payments - ABZ Cashier Portal{% endblock %}
 
@@ -13,7 +13,7 @@
                 <a href="#" class="btn btn-success">
                     <i class="fas fa-plus me-2"></i>New Payment
                 </a>
-                <a href="{{ url_for('orders') }}" class="btn btn-primary">
+                <a href="{{ url_for('app_cashier.orders') }}" class="btn btn-primary">
                     <i class="fas fa-shopping-cart me-2"></i>Process Order Payment
                 </a>
             </div>
@@ -53,7 +53,7 @@
                         <button type="submit" class="btn btn-primary me-2">
                             <i class="fas fa-filter me-1"></i>Filter
                         </button>
-                        <a href="{{ url_for('payments') }}" class="btn btn-outline-secondary">
+                        <a href="{{ url_for('app_cashier.payments') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-times me-1"></i>Clear
                         </a>
                     </div>
@@ -96,7 +96,7 @@
                                     <strong>#{{ payment.id }}</strong>
                                 </td>
                                 <td>
-                                    <a href="{{ url_for('view_order', order_id=payment.orderid) }}" class="text-decoration-none">
+                                    <a href="{{ url_for('app_cashier.view_order', order_id=payment.orderid) }}" class="text-decoration-none">
                                         <span class="badge bg-primary">Order #{{ payment.orderid }}</span>
                                     </a>
                                 </td>
@@ -160,7 +160,7 @@
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <a href="{{ url_for('view_payment', payment_id=payment.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <a href="{{ url_for('app_cashier.view_payment', payment_id=payment.id) }}" class="btn btn-sm btn-outline-primary">
                                             <i class="fas fa-eye me-1"></i>View
                                         </a>
                                         {% if payment.payment_status == 'pending' %}
@@ -175,15 +175,15 @@
                                         {% endif %}
                                                                                  {% if payment.payment_status == 'completed' %}
                                          <div class="btn-group" role="group">
-                                             <a href="{{ url_for('receipt_preview', payment_id=payment.id) }}" 
+                                             <a href="{{ url_for('app_cashier.receipt_preview', payment_id=payment.id) }}" 
                                                 class="btn btn-sm btn-outline-primary" title="Preview Receipt">
                                                  <i class="fas fa-eye me-1"></i>Preview
                                              </a>
-                                             <a href="{{ url_for('generate_receipt', payment_id=payment.id) }}" 
+                                             <a href="{{ url_for('app_cashier.generate_receipt', payment_id=payment.id) }}" 
                                                 class="btn btn-sm btn-outline-info" target="_blank" title="View PDF">
                                                  <i class="fas fa-file-pdf me-1"></i>PDF
                                              </a>
-                                             <a href="{{ url_for('generate_receipt', payment_id=payment.id, action='download') }}" 
+                                             <a href="{{ url_for('app_cashier.generate_receipt', payment_id=payment.id, action='download') }}" 
                                                 class="btn btn-sm btn-outline-success" title="Download Receipt">
                                                  <i class="fas fa-download me-1"></i>Download
                                              </a>
@@ -203,7 +203,7 @@
                     <ul class="pagination justify-content-center">
                         {% if payments.has_prev %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('payments', page=payments.prev_num, status=status_filter) }}">
+                            <a class="page-link" href="{{ url_for('app_cashier.payments', page=payments.prev_num, status=status_filter) }}">
                                 <i class="fas fa-chevron-left"></i> Previous
                             </a>
                         </li>
@@ -213,7 +213,7 @@
                             {% if page_num %}
                                 {% if page_num != payments.page %}
                                 <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('payments', page=page_num, status=status_filter) }}">{{ page_num }}</a>
+                                    <a class="page-link" href="{{ url_for('app_cashier.payments', page=page_num, status=status_filter) }}">{{ page_num }}</a>
                                 </li>
                                 {% else %}
                                 <li class="page-item active">
@@ -229,7 +229,7 @@
 
                         {% if payments.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('payments', page=payments.next_num, status=status_filter) }}">
+                            <a class="page-link" href="{{ url_for('app_cashier.payments', page=payments.next_num, status=status_filter) }}">
                                 Next <i class="fas fa-chevron-right"></i>
                             </a>
                         </li>
@@ -243,7 +243,7 @@
                     <i class="fas fa-credit-card fa-4x text-muted mb-3"></i>
                     <h5 class="text-muted">No payments found</h5>
                     <p class="text-muted">There are no payments matching your current filters.</p>
-                    <a href="{{ url_for('payments') }}" class="btn btn-primary">
+                    <a href="{{ url_for('app_cashier.payments') }}" class="btn btn-primary">
                         <i class="fas fa-refresh me-2"></i>Clear Filters
                     </a>
                 </div>

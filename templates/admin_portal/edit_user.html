@@ -1,4 +1,4 @@
-{% extends "navbars.html" %}
+{% extends "admin_portal/navbars.html" %}
 
 {% block content %}
 <div class="container">
@@ -9,7 +9,7 @@
         <h6 class="op-7 mb-2">Update user account details</h6>
       </div>
       <div class="ms-md-auto py-2 py-md-0">
-        <a href="{{ url_for('users') }}" class="btn btn-label-info btn-round me-2">
+        <a href="{{ url_for('app_admin.users') }}" class="btn btn-label-info btn-round me-2">
           <i class="fas fa-users"></i> View All Users
         </a>
       </div>
@@ -24,7 +24,7 @@
             </div>
           </div>
           <div class="card-body">
-            <form method="POST" action="{{ url_for('edit_user', id=user.id) }}">
+            <form method="POST" action="{{ url_for('app_admin.edit_user', id=user.id) }}">
               <div class="row">
                 <div class="col-md-6">
                   <div class="form-group">
@@ -117,7 +117,7 @@
                 <button type="submit" class="btn btn-primary btn-round">
                   <i class="fas fa-save"></i> Update User
                 </button>
-                <a href="{{ url_for('users') }}" class="btn btn-secondary btn-round">
+                <a href="{{ url_for('app_admin.users') }}" class="btn btn-secondary btn-round">
                   <i class="fas fa-times"></i> Cancel
                 </a>
               </div>

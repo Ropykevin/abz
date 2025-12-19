@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Branch, ProductCatalog, BranchProduct, Order, OrderItem, Payment, StockTransaction, Supplier, PurchaseOrder, PurchaseOrderItem, Quotation, QuotationItem, SubCategory, Expense, ExpenseV2, ExpensePayment, Delivery, DeliveryPayment
+from models.admin import Branch, User, ProductCatalog, BranchProduct, Order, OrderItem, Payment, StockTransaction, Supplier, PurchaseOrder, PurchaseOrderItem, Quotation, QuotationItem, SubCategory, Expense, Delivery, DeliveryPayment
+from models.cashier import ExpenseV2, ExpensePayment
 from datetime import datetime, timedelta
 import os
 from sqlalchemy import func
@@ -11,13 +12,12 @@ from decimal import Decimal
 
 #New Compied Code
 from flask import Blueprint
-from config.appconfig import Config,login_manager,current_user,login_required,datetime,timedelta
+from config.appconfig import Config,login_manager,current_user,login_required,role_required,logout_user,datetime,timedelta
 from config.dbconfig import db,EAT
-from helpers.cloudinary_upload import *
-from helpers.pdf_generate import *
 
-app = Blueprint('app1', __name__)
-app.config.from_object(Config)
+app_cashier = Blueprint('app_cashier', __name__)
+
+login_manager.login_view = 'app_cashier.login'
 
 # Branch access control helper functions
 def get_user_accessible_branch_ids():
@@ -50,14 +50,14 @@ def get_user_accessible_branches():
 
 
 # Custom Jinja2 filters
-@app.template_filter('east_africa_time')
+@app_cashier.app_template_filter('east_africa_time')
 def east_africa_time(dt):
     """Convert UTC time to East Africa Time (+3 hours)"""
     if dt is None:
         return None
     return dt + timedelta(hours=3)
 
-@app.template_filter('strftime')
+@app_cashier.app_template_filter('strftime')
 def strftime_filter(dt, format_string):
     """Format datetime objects using strftime"""
     if dt is None:
@@ -76,14 +76,14 @@ def unauthorized():
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-@app.before_request
+@app_cashier.before_request
 def check_user_role():
     """Check user role on every request for additional security"""
     if current_user.is_authenticated:
         if current_user.role != 'cashier':
             flash('Access denied. Only cashiers can access this application.', 'error')
             logout_user()
-            return redirect(url_for('login'))
+            return redirect(url_for('app_cashier.login'))
 
 def cashier_required(f):
     """Decorator to ensure only users with 'cashier' role can access the route"""
@@ -97,27 +97,30 @@ def cashier_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
-print('Creating database tables...')
-with app.app_context():
-    db.create_all()
-    print('✅ Database tables created successfully!')
+# print('Creating database tables...')
+# with app_cashier.app_context():
+#     db.create_all()
+#     print('✅ Database tables created successfully!')
 
 # Routes
-@app.route('/')
+@app_cashier.route('/')
+@login_required('app_cashier')
+@role_required(['cashier'],'app_cashier')
 def index():
-    if current_user.is_authenticated:
-        # Check if user has cashier role
-        if current_user.role != 'cashier':
-            flash('Access denied. Only cashiers can access this application.', 'error')
-            logout_user()
-            return redirect(url_for('login'))
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+    return render_template('cashier_portal/dashboard.html')
+    # if current_user.is_authenticated:
+    #     # Check if user has cashier role
+    #     if current_user.role != 'cashier':
+    #         flash('Access denied. Only cashiers can access this application.', 'error')
+    #         logout_user()
+    #         return redirect(url_for('login'))
+    #     return redirect(url_for('dashboard'))
+    # return redirect(url_for('login'))
 
-@app.route('/login', methods=['GET', 'POST'])
+@app_cashier.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('app_cashier.dashboard'))
     
     if request.method == 'POST':
         email = request.form.get('email')
@@ -125,7 +128,7 @@ def login():
         
         if not email or not password:
             flash('Please fill in all fields.', 'error')
-            return render_template('login.html')
+            return render_template('cashier_portal/login.html')
         
         user = User.query.filter_by(email=email).first()
         
@@ -133,26 +136,27 @@ def login():
             # Check if user has cashier role
             if user.role != 'cashier':
                 flash('Access denied. Only cashiers can access this application.', 'error')
-                return render_template('login.html')
+                return render_template('cashier_portal/login.html')
             
             login_user(user)
             flash(f'Welcome back, {user.firstname}!', 'success')
             next_page = request.args.get('next')
-            return redirect(next_page or url_for('dashboard'))
+            return redirect(next_page or url_for('app_cashier.dashboard'))
         else:
             flash('Invalid email or password.', 'error')
     
-    return render_template('login.html')
+    return render_template('cashier_portal/login.html')
 
-@app.route('/logout')
+@app_cashier.route('/logout')
 @cashier_required
 def logout():
     logout_user()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('login'))
+    return redirect(url_for('app_cashier.login'))
 
-@app.route('/dashboard')
-@cashier_required
+@app_cashier.route('/dashboard')
+@login_required('app_cashier')
+@role_required(['cashier'],'app_cashier')
 def dashboard():
     from datetime import datetime, date
     from sqlalchemy import func
@@ -253,7 +257,7 @@ def dashboard():
         failed_payments_query = failed_payments_query.filter(Order.branchid.in_(accessible_branch_ids))
     failed_payments_count = failed_payments_query.count()
     
-    return render_template('dashboard.html',
+    return render_template('cashier_portal/dashboard.html',
                          pending_orders_count=pending_orders_count,
                          today_orders_count=today_orders_count,
                          pending_payments_count=pending_payments_count,
@@ -262,14 +266,14 @@ def dashboard():
                          failed_payments_count=failed_payments_count)
 
 
-@app.route('/profile')
+@app_cashier.route('/profile')
 @cashier_required
 def profile():
-    return render_template('profile.html')
+    return render_template('cashier_portal/profile.html')
 
 
 # Order Management Routes
-@app.route('/orders')
+@app_cashier.route('/orders')
 @cashier_required
 def orders():
     page = request.args.get('page', 1, type=int)
@@ -347,9 +351,9 @@ def orders():
             else:
                 order.payment_status = 'Unpaid'
     
-    return render_template('orders.html', orders=orders, status_filter=status_filter)
+    return render_template('cashier_portal/orders.html', orders=orders, status_filter=status_filter)
 
-@app.route('/order/<int:order_id>')
+@app_cashier.route('/order/<int:order_id>')
 @cashier_required
 def view_order(order_id):
     from sqlalchemy import func
@@ -445,7 +449,7 @@ def view_order(order_id):
     print(f"Debug - Payment status: {payment_status}")  
     print(f"Debug - About to render template with order {order.id}")
     try:
-        return render_template('view_order.html', 
+        return render_template('cashier_portal/view_order.html', 
                              order=order, 
                              total_amount=float(total_amount),
                              total_payments=float(total_payments),
@@ -455,9 +459,9 @@ def view_order(order_id):
     except Exception as e:
         print(f"Debug - Error rendering template: {str(e)}")
         flash(f'Error displaying order: {str(e)}', 'error')
-        return redirect(url_for('orders'))
+        return redirect(url_for('app_cashier.orders'))
 
-@app.route('/order/<int:order_id>/approve', methods=['POST'])
+@app_cashier.route('/order/<int:order_id>/approve', methods=['POST'])
 @cashier_required
 def approve_order(order_id):
     order = Order.query.get_or_404(order_id)
@@ -465,7 +469,7 @@ def approve_order(order_id):
     # Check if user has access to this order's branch
     if not current_user.has_branch_access(order.branchid):
         flash('Access denied. You do not have permission to approve this order.', 'error')
-        return redirect(url_for('orders'))
+        return redirect(url_for('app_cashier.orders'))
     
     # Check if order is already approved
     if order.approvalstatus:
@@ -475,7 +479,7 @@ def approve_order(order_id):
     # Check if order has items
     if not order.order_items:
         flash('Cannot approve order with no items.', 'error')
-        return redirect(url_for('view_order', order_id=order_id))
+        return redirect(url_for('app_cashier.view_order', order_id=order_id))
     
     # Check stock availability for informational purposes (but allow approval)
     low_stock_warnings = []
@@ -562,9 +566,9 @@ def approve_order(order_id):
         flash(f'Failed to approve order: {str(e)}', 'error')
         print(f"Error approving order {order_id}: {str(e)}")
     
-    return redirect(url_for('view_order', order_id=order_id))
+    return redirect(url_for('app_cashier.view_order', order_id=order_id))
 
-@app.route('/order/<int:order_id>/cancel', methods=['POST'])
+@app_cashier.route('/order/<int:order_id>/cancel', methods=['POST'])
 @cashier_required
 def cancel_order(order_id):
     order = Order.query.get_or_404(order_id)
@@ -572,17 +576,17 @@ def cancel_order(order_id):
     # Check if user has access to this order's branch
     if not current_user.has_branch_access(order.branchid):
         flash('Access denied. You do not have permission to cancel this order.', 'error')
-        return redirect(url_for('orders'))
+        return redirect(url_for('app_cashier.orders'))
     
     # Check if order is approved
     if not order.approvalstatus:
         flash(f'Order #{order.id} is not approved yet. Cannot cancel.', 'warning')
-        return redirect(url_for('view_order', order_id=order_id))
+        return redirect(url_for('app_cashier.view_order', order_id=order_id))
     
     # Check if order has items
     if not order.order_items:
         flash('Cannot cancel order with no items.', 'error')
-        return redirect(url_for('view_order', order_id=order_id))
+        return redirect(url_for('app_cashier.view_order', order_id=order_id))
     
     try:
         # Cancel the order
@@ -629,7 +633,7 @@ def cancel_order(order_id):
     
     return redirect(url_for('view_order', order_id=order_id))
 
-@app.route('/order/<int:order_id>/process-payment', methods=['GET', 'POST'])
+@app_cashier.route('/order/<int:order_id>/process-payment', methods=['GET', 'POST'])
 @cashier_required
 def process_payment_from_order(order_id):
     from sqlalchemy import func
@@ -760,7 +764,7 @@ def process_payment_from_order(order_id):
                          remaining=remaining_amount)
 
 # Payment Management Routes
-@app.route('/payments')
+@app_cashier.route('/payments')
 @cashier_required
 def payments():
     page = request.args.get('page', 1, type=int)
@@ -784,9 +788,9 @@ def payments():
         page=page, per_page=20, error_out=False
     )
     
-    return render_template('payments.html', payments=payments, status_filter=status_filter)
+    return render_template('cashier_portal/payments.html', payments=payments, status_filter=status_filter)
 
-@app.route('/payment/<int:payment_id>')
+@app_cashier.route('/payment/<int:payment_id>')
 @cashier_required
 def view_payment(payment_id):
     payment = Payment.query.get_or_404(payment_id)
@@ -794,7 +798,7 @@ def view_payment(payment_id):
     # Check if user has access to this payment's order branch
     if not current_user.has_branch_access(payment.order.branchid):
         flash('Access denied. You do not have permission to view this payment.', 'error')
-        return redirect(url_for('payments'))
+        return redirect(url_for('app_cashier.payments'))
     
     # Calculate total amount for the related order if it exists
     if hasattr(payment, 'order') and payment.order:
@@ -805,9 +809,9 @@ def view_payment(payment_id):
                 total_amount += float(item.quantity) * price
         payment.order.total_amount = total_amount
     
-    return render_template('view_payment.html', payment=payment)
+    return render_template('cashier_portal/view_payment.html', payment=payment)
 
-@app.route('/payment/<int:payment_id>/process', methods=['POST'])
+@app_cashier.route('/payment/<int:payment_id>/process', methods=['POST'])
 @cashier_required
 def process_payment(payment_id):
     from sqlalchemy import func
@@ -817,7 +821,7 @@ def process_payment(payment_id):
     # Check if user has access to this payment's order branch
     if not current_user.has_branch_access(payment.order.branchid):
         flash('Access denied. You do not have permission to process this payment.', 'error')
-        return redirect(url_for('payments'))
+        return redirect(url_for('app_cashier.payments'))
     
     action = request.form.get('action')
     
@@ -860,10 +864,10 @@ def process_payment(payment_id):
         db.session.rollback()
         flash('Failed to update payment status. Please try again.', 'error')
     
-    return redirect(url_for('view_payment', payment_id=payment_id))
+    return redirect(url_for('app_cashier.view_payment', payment_id=payment_id))
 
 # Sales Report Route
-@app.route('/sales-report')
+@app_cashier.route('/sales-report')
 @cashier_required
 def sales_report():
     from datetime import datetime, timedelta
@@ -900,14 +904,14 @@ def sales_report():
     total_revenue = sum(row.total_amount for row in sales_data if row.total_amount)
     total_payments = sum(row.payment_count for row in sales_data)
     
-    return render_template('sales_report.html', 
+    return render_template('cashier_portal/sales_report.html', 
                          sales_data=sales_data,
                          start_date=start_date,
                          end_date=end_date,
                          total_revenue=total_revenue,
                          total_payments=total_payments)
 
-@app.route('/sales-report/daily-details/<date>')
+@app_cashier.route('/sales-report/daily-details/<date>')
 @cashier_required
 def daily_sales_details(date):
     """Show detailed breakdown of sales for a specific date"""
@@ -984,7 +988,7 @@ def daily_sales_details(date):
         return redirect(url_for('sales_report'))
 
 # PDF Export Route for Sales Report
-@app.route('/sales-report/export-pdf')
+@app_cashier.route('/sales-report/export-pdf')
 @cashier_required
 def export_sales_report_pdf():
     from reportlab.lib.pagesizes import A4
@@ -1404,7 +1408,7 @@ def export_sales_report_pdf():
     )
 
 # PDF Export Route for Daily Sales Details
-@app.route('/sales-report/daily-details/<date>/export-pdf')
+@app_cashier    .route('/sales-report/daily-details/<date>/export-pdf')
 @cashier_required
 def export_daily_sales_pdf(date):
     from reportlab.lib.pagesizes import A4
@@ -1823,7 +1827,7 @@ def export_daily_sales_pdf(date):
         return redirect(url_for('sales_report'))
 
 # Stock Transactions Route
-@app.route('/stock-transactions')
+@app_cashier.route('/stock-transactions')
 @cashier_required
 def stock_transactions():
     page = request.args.get('page', 1, type=int)
@@ -1864,7 +1868,7 @@ def stock_transactions():
                          products=products)
 
 # Current Stock Levels Route
-@app.route('/stock-levels')
+@app_cashier.route('/stock-levels')
 @cashier_required
 def stock_levels():
     page = request.args.get('page', 1, type=int)
@@ -1912,7 +1916,7 @@ def stock_levels():
                          branches=branches)
 
 # Manual Stock Adjustment Route
-@app.route('/stock-adjustment', methods=['GET', 'POST'])
+@app_cashier.route('/stock-adjustment', methods=['GET', 'POST'])
 @cashier_required
 def stock_adjustment():
     if request.method == 'POST':
@@ -1981,7 +1985,7 @@ def stock_adjustment():
     return render_template('stock_adjustment.html', products=products)
 
 
-@app.route('/order/<int:order_id>/delivery-note')
+@app_cashier.route('/order/<int:order_id>/delivery-note')
 @cashier_required
 def generate_delivery_note_from_order(order_id):
     """Generate delivery note PDF for an order"""
@@ -2009,7 +2013,7 @@ def generate_delivery_note_from_order(order_id):
         mimetype='application/pdf'
     )
 
-@app.route('/deliveries/<int:delivery_id>/delivery-note/preview')
+@app_cashier.route('/deliveries/<int:delivery_id>/delivery-note/preview')
 @cashier_required
 def delivery_note_preview(delivery_id):
     """Show delivery note preview page"""
@@ -2022,8 +2026,8 @@ def delivery_note_preview(delivery_id):
     
     return render_template('delivery_note_preview.html', delivery=delivery)
 
-@app.route('/deliveries/<int:delivery_id>/delivery-note')
-@app.route('/deliveries/<int:delivery_id>/delivery-note/<action>')
+@app_cashier.route('/deliveries/<int:delivery_id>/delivery-note')
+@app_cashier.route('/deliveries/<int:delivery_id>/delivery-note/<action>')
 @cashier_required
 def generate_delivery_note(delivery_id, action='download'):
     """Generate delivery note PDF for a delivery"""
@@ -2060,7 +2064,7 @@ def generate_delivery_note(delivery_id, action='download'):
             mimetype='application/pdf'
         )
 
-@app.route('/payment/<int:payment_id>/receipt/preview')
+@app_cashier.route('/payment/<int:payment_id>/receipt/preview')
 @cashier_required
 def receipt_preview(payment_id):
     """Show receipt preview page"""
@@ -2073,8 +2077,8 @@ def receipt_preview(payment_id):
     
     return render_template('receipt_preview.html', payment=payment)
 
-@app.route('/payment/<int:payment_id>/receipt')
-@app.route('/payment/<int:payment_id>/receipt/<action>')
+@app_cashier.route('/payment/<int:payment_id>/receipt')
+@app_cashier.route('/payment/<int:payment_id>/receipt/<action>')
 @cashier_required
 def generate_receipt(payment_id, action='view'):
     from reportlab.lib import colors
@@ -2235,12 +2239,12 @@ def generate_receipt(payment_id, action='view'):
 
 
 # Error handlers
-@app.errorhandler(404)
+@app_cashier.errorhandler(404)
 def not_found_error(error):
-    return render_template('404.html'), 404
+    return render_template('cashier_portal/404.html'), 404
 
 # Expense V2 Management Routes (New Flow)
-@app.route('/expenses-v2')
+@app_cashier.route('/expenses-v2')
 @cashier_required
 def expenses_v2():
     page = request.args.get('page', 1, type=int)
@@ -2277,14 +2281,14 @@ def expenses_v2():
     categories = db.session.query(ExpenseV2.category).distinct().all()
     categories = [cat[0] for cat in categories]
     
-    return render_template('expenses_v2.html', 
+    return render_template('cashier_portal/expenses_v2.html', 
                          expenses=expenses, 
                          status_filter=status_filter,
                          category_filter=category_filter,
                          payment_status_filter=payment_status_filter,
                          categories=categories)
 
-@app.route('/expenses-v2/add', methods=['GET', 'POST'])
+@app_cashier.route('/expenses-v2/add', methods=['GET', 'POST'])
 @cashier_required
 def add_expense_v2():
     if request.method == 'POST':
@@ -2363,9 +2367,9 @@ def add_expense_v2():
     accessible_branch_ids = get_user_accessible_branch_ids()
     accessible_branches = current_user.get_accessible_branches()
     
-    return render_template('add_expense_v2.html', branches=accessible_branches)
+    return render_template('cashier_portal/add_expense_v2.html', branches=accessible_branches)
 
-@app.route('/expenses-v2/<int:expense_id>')
+@app_cashier.route('/expenses-v2/<int:expense_id>')
 @cashier_required
 def view_expense_v2(expense_id):
     # Get accessible branch IDs for current user
@@ -2387,9 +2391,9 @@ def view_expense_v2(expense_id):
     # Get payments for this expense
     payments = ExpensePayment.query.filter_by(expense_id=expense_id).order_by(ExpensePayment.created_at.desc()).all()
     
-    return render_template('view_expense_v2.html', expense=expense, payments=payments)
+    return render_template('cashier_portal/view_expense_v2.html', expense=expense, payments=payments)
 
-@app.route('/expenses-v2/<int:expense_id>/edit', methods=['GET', 'POST'])
+@app_cashier.route('/expenses-v2/<int:expense_id>/edit', methods=['GET', 'POST'])
 @cashier_required
 def edit_expense_v2(expense_id):
     # Get accessible branch IDs for current user
@@ -2508,9 +2512,9 @@ def edit_expense_v2(expense_id):
     # GET request - show form
     accessible_branches = current_user.get_accessible_branches()
     
-    return render_template('edit_expense_v2.html', expense=expense, branches=accessible_branches)
+    return render_template('cashier_portal/edit_expense_v2.html', expense=expense, branches=accessible_branches)
 
-@app.route('/expenses-v2/<int:expense_id>/payments/add', methods=['GET', 'POST'])
+@app_cashier.route('/expenses-v2/<int:expense_id>/payments/add', methods=['GET', 'POST'])
 @cashier_required
 def add_expense_payment(expense_id):
     # Get accessible branch IDs for current user
@@ -2567,10 +2571,10 @@ def add_expense_payment(expense_id):
             return redirect(url_for('add_expense_payment', expense_id=expense_id))
     
     # GET request - show form
-    return render_template('add_expense_payment.html', expense=expense)
+    return render_template('cashier_portal/add_expense_payment.html', expense=expense)
 
 # Expense Management Routes (Old System)
-@app.route('/expenses')
+@app_cashier.route('/expenses')
 @cashier_required
 def expenses():
     page = request.args.get('page', 1, type=int)
@@ -2612,7 +2616,7 @@ def expenses():
                          category_filter=category_filter,
                          categories=categories)
 
-@app.route('/expenses/add', methods=['GET', 'POST'])
+@app_cashier.route('/expenses/add', methods=['GET', 'POST'])
 @cashier_required
 def add_expense():
     if request.method == 'POST':
@@ -2681,7 +2685,7 @@ def add_expense():
     
     return render_template('add_expense.html', branches=accessible_branches)
 
-@app.route('/expenses/<int:expense_id>')
+@app_cashier.route('/expenses/<int:expense_id>')
 @cashier_required
 def view_expense(expense_id):
     # Get accessible branch IDs for current user
@@ -2702,7 +2706,7 @@ def view_expense(expense_id):
     
     return render_template('view_expense.html', expense=expense)
 
-@app.route('/expenses/<int:expense_id>/edit', methods=['GET', 'POST'])
+@app_cashier.route('/expenses/<int:expense_id>/edit', methods=['GET', 'POST'])
 @cashier_required
 def edit_expense(expense_id):
     # Get accessible branch IDs for current user
@@ -2784,7 +2788,7 @@ def edit_expense(expense_id):
 
 # ==================== DELIVERY MANAGEMENT ====================
 
-@app.route('/deliveries')
+@app_cashier.route('/deliveries')
 @cashier_required
 def deliveries():
     """List all deliveries with filters and pagination"""
@@ -2820,11 +2824,11 @@ def deliveries():
     # Get accessible branches for filter dropdown
     accessible_branches = current_user.get_accessible_branches()
     
-    return render_template('deliveries.html', deliveries=deliveries, 
+    return render_template('cashier_portal/deliveries.html', deliveries=deliveries, 
                          statuses=statuses, branches=accessible_branches,
                          current_status=status_filter, current_branch=branch_filter)
 
-@app.route('/deliveries/create', methods=['GET', 'POST'])
+@app_cashier.route('/deliveries/create', methods=['GET', 'POST'])
 @cashier_required
 def create_delivery():
     """Create a new delivery for an order"""
@@ -2841,24 +2845,24 @@ def create_delivery():
             # Validate required fields
             if not all([order_id, delivery_amount, delivery_location, customer_phone]):
                 flash('Please fill in all required fields.', 'error')
-                return redirect(url_for('create_delivery'))
+                return redirect(url_for('app_cashier.create_delivery'))
             
             # Check if order exists and user has access
             order = Order.query.get(order_id)
             if not order:
                 flash('Order not found.', 'error')
-                return redirect(url_for('create_delivery'))
+                return redirect(url_for('app_cashier.create_delivery'))
             
             accessible_branch_ids = get_user_accessible_branch_ids()
             if order.branchid not in accessible_branch_ids:
                 flash('You do not have access to this order.', 'error')
-                return redirect(url_for('create_delivery'))
+                return redirect(url_for('app_cashier.create_delivery'))
             
             # Check if delivery already exists for this order
             existing_delivery = Delivery.query.filter_by(order_id=order_id).first()
             if existing_delivery:
                 flash('A delivery already exists for this order.', 'error')
-                return redirect(url_for('create_delivery'))
+                return redirect(url_for('app_cashier.create_delivery'))
             
             # Create delivery
             delivery = Delivery(
@@ -2876,12 +2880,12 @@ def create_delivery():
             db.session.commit()
             
             flash('Delivery created successfully!', 'success')
-            return redirect(url_for('view_delivery', delivery_id=delivery.id))
+            return redirect(url_for('app_cashier.view_delivery', delivery_id=delivery.id))
             
         except Exception as e:
             db.session.rollback()
             flash(f'Error creating delivery: {str(e)}', 'error')
-            return redirect(url_for('create_delivery'))
+            return redirect(url_for('app_cashier.create_delivery'))
     
     # GET request - show form
     # Get orders that don't have deliveries yet and user has access to
@@ -2897,9 +2901,9 @@ def create_delivery():
     
     orders = orders_query.order_by(Order.created_at.desc()).all()
     
-    return render_template('create_delivery.html', orders=orders)
+    return render_template('cashier_portal/create_delivery.html', orders=orders)
 
-@app.route('/deliveries/<int:delivery_id>')
+@app_cashier.route('/deliveries/<int:delivery_id>')
 @cashier_required
 def view_delivery(delivery_id):
     """View delivery details"""
@@ -2910,14 +2914,14 @@ def view_delivery(delivery_id):
     accessible_branch_ids = get_user_accessible_branch_ids()
     if delivery.order.branchid not in accessible_branch_ids:
         flash('You do not have access to this delivery.', 'error')
-        return redirect(url_for('deliveries'))
+        return redirect(url_for('app_cashier.deliveries'))
     
     # Get delivery payments
     payments = DeliveryPayment.query.filter_by(delivery_id=delivery_id).order_by(DeliveryPayment.created_at.desc()).all()
     
-    return render_template('view_delivery.html', delivery=delivery, payments=payments)
+    return render_template('cashier_portal/view_delivery.html', delivery=delivery, payments=payments)
 
-@app.route('/deliveries/<int:delivery_id>/edit', methods=['GET', 'POST'])
+@app_cashier.route('/deliveries/<int:delivery_id>/edit', methods=['GET', 'POST'])
 @cashier_required
 def edit_delivery(delivery_id):
     """Edit delivery details"""
@@ -2928,12 +2932,12 @@ def edit_delivery(delivery_id):
     accessible_branch_ids = get_user_accessible_branch_ids()
     if delivery.order.branchid not in accessible_branch_ids:
         flash('You do not have access to this delivery.', 'error')
-        return redirect(url_for('deliveries'))
+        return redirect(url_for('app_cashier.deliveries'))
     
     # Only allow editing if delivery is pending or in_transit
     if delivery.delivery_status not in ['pending', 'in_transit']:
         flash('You can only edit pending or in-transit deliveries.', 'error')
-        return redirect(url_for('view_delivery', delivery_id=delivery_id))
+        return redirect(url_for('app_cashier.view_delivery', delivery_id=delivery_id))
     
     if request.method == 'POST':
         try:
@@ -2948,7 +2952,7 @@ def edit_delivery(delivery_id):
             # Validate required fields
             if not all([delivery_amount, delivery_location, customer_phone]):
                 flash('Please fill in all required fields.', 'error')
-                return redirect(url_for('edit_delivery', delivery_id=delivery_id))
+                return redirect(url_for('app_cashier.edit_delivery', delivery_id=delivery_id))
             
             # Update delivery
             delivery.delivery_amount = float(delivery_amount)
@@ -2962,17 +2966,17 @@ def edit_delivery(delivery_id):
             db.session.commit()
             
             flash('Delivery updated successfully!', 'success')
-            return redirect(url_for('view_delivery', delivery_id=delivery_id))
+            return redirect(url_for('app_cashier.view_delivery', delivery_id=delivery_id))
             
         except Exception as e:
             db.session.rollback()
             flash(f'Error updating delivery: {str(e)}', 'error')
-            return redirect(url_for('edit_delivery', delivery_id=delivery_id))
+            return redirect(url_for('app_cashier.edit_delivery', delivery_id=delivery_id))
     
     # GET request - show form
-    return render_template('edit_delivery.html', delivery=delivery)
+    return render_template('cashier_portal/edit_delivery.html', delivery=delivery)
 
-@app.route('/deliveries/<int:delivery_id>/update-status', methods=['POST'])
+@app_cashier.route('/deliveries/<int:delivery_id>/update-status', methods=['POST'])
 @cashier_required
 def update_delivery_status(delivery_id):
     """Update delivery status"""
@@ -2983,13 +2987,13 @@ def update_delivery_status(delivery_id):
     accessible_branch_ids = get_user_accessible_branch_ids()
     if delivery.order.branchid not in accessible_branch_ids:
         flash('You do not have access to this delivery.', 'error')
-        return redirect(url_for('deliveries'))
+        return redirect(url_for('app_cashier.deliveries'))
     
     try:
         new_status = request.form.get('status')
         if new_status not in ['pending', 'in_transit', 'delivered', 'cancelled', 'failed']:
             flash('Invalid status.', 'error')
-            return redirect(url_for('view_delivery', delivery_id=delivery_id))
+            return redirect(url_for('app_cashier.view_delivery', delivery_id=delivery_id))
         
         delivery.delivery_status = new_status
         delivery.updated_at = datetime.now()
@@ -3002,9 +3006,9 @@ def update_delivery_status(delivery_id):
         db.session.rollback()
         flash(f'Error updating delivery status: {str(e)}', 'error')
     
-    return redirect(url_for('view_delivery', delivery_id=delivery_id))
+    return redirect(url_for('app_cashier.view_delivery', delivery_id=delivery_id))
 
-@app.route('/deliveries/<int:delivery_id>/payments/add', methods=['GET', 'POST'])
+@app_cashier.route('/deliveries/<int:delivery_id>/payments/add', methods=['GET', 'POST'])
 @cashier_required
 def add_delivery_payment(delivery_id):
     """Add payment for a delivery"""
@@ -3015,7 +3019,7 @@ def add_delivery_payment(delivery_id):
     accessible_branch_ids = get_user_accessible_branch_ids()
     if delivery.order.branchid not in accessible_branch_ids:
         flash('You do not have access to this delivery.', 'error')
-        return redirect(url_for('deliveries'))
+        return redirect(url_for('app_cashier.deliveries'))
     
     if request.method == 'POST':
         try:
@@ -3031,7 +3035,7 @@ def add_delivery_payment(delivery_id):
             # Validate required fields
             if not all([amount, payment_method, payment_status]):
                 flash('Please fill in all required fields.', 'error')
-                return redirect(url_for('add_delivery_payment', delivery_id=delivery_id))
+                return redirect(url_for('app_cashier.add_delivery_payment', delivery_id=delivery_id))
             
             # Create delivery payment
             payment = DeliveryPayment(
@@ -3064,18 +3068,18 @@ def add_delivery_payment(delivery_id):
             db.session.commit()
             
             flash('Delivery payment added successfully!', 'success')
-            return redirect(url_for('view_delivery', delivery_id=delivery_id))
+            return redirect(url_for('app_cashier.view_delivery', delivery_id=delivery_id))
             
         except Exception as e:
             db.session.rollback()
             flash(f'Error adding delivery payment: {str(e)}', 'error')
-            return redirect(url_for('add_delivery_payment', delivery_id=delivery_id))
+            return redirect(url_for('app_cashier.add_delivery_payment', delivery_id=delivery_id))
     
     # GET request - show form
-    return render_template('add_delivery_payment.html', delivery=delivery)
+    return render_template('cashier_portal/add_delivery_payment.html', delivery=delivery)
 
-@app.errorhandler(500)
+@app_cashier.errorhandler(500)
 def internal_error(error):
     db.session.rollback()
-    return render_template('500.html'), 500
+    return render_template('cashier_portal/500.html'), 500
 

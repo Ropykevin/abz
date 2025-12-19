@@ -3,34 +3,37 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from flask_login import LoginManager, login_user, logout_user, current_user
 from functools import wraps
-from flask import redirect,flash,request,url_for
+from flask import redirect, flash, request, url_for
 
 login_manager = LoginManager()
 login_manager.login_message = 'Please log in to access this page.'
 
 # Custom Login required
+
+
 def login_required(app_name):
-    def loginn_decorator(view_func):
+    def login_decorator(view_func):
         @wraps(view_func)
         def wrapped_view(*args, **kwargs):
             if current_user.is_authenticated:
+                print('niko hapa')
                 return view_func(*args, **kwargs)
             next_url = request.url
             print("Next URL: ", next_url)
             return redirect(url_for(f"{app_name}.login", next=next_url))
         return wrapped_view
-    return loginn_decorator
+    return login_decorator
 
 
 # Custom decorator for role-based access
-def role_required(roles, app_name):
+def role_required(role, app_name):
     def role_decorator(view_func):
         @wraps(view_func)
         def wrapped_view(*args, **kwargs):
             if not current_user.is_authenticated:
                 return redirect(url_for(f"{app_name}.login", next=request.url))
 
-            if not hasattr(current_user, 'role') or current_user.role not in roles:
+            if not hasattr(current_user, 'role') or current_user.role not in role:
                 flash('You do not have permission to access this page.', 'danger')
                 return redirect(url_for(f"{app_name}.unauthorized"))
 

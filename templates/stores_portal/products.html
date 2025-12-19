@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "stores_portal/base.html" %}
 
 {% block title %}Product Catalog - Store Keeper Portal{% endblock %}
 {% block page_title %}Product Catalog{% endblock %}
@@ -6,7 +6,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Product Catalog</h2>
-    <a href="{{ url_for('add_product') }}" class="btn btn-primary">
+    <a href="{{ url_for('app_store.add_product') }}" class="btn btn-primary">
         <i class="fas fa-plus me-2"></i>
         Add New Product
     </a>
@@ -29,7 +29,7 @@
                     <i class="fas fa-search me-2"></i>
                     Search
                 </button>
-                <a href="{{ url_for('products') }}" class="btn btn-outline-secondary">
+                <a href="{{ url_for('app_store.products') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-times me-2"></i>
                     Clear
                 </a>
@@ -91,12 +91,12 @@
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{{ url_for('app_store.edit_product', product_id=product.id) }}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteProduct({{ product.id }}, '{{ product.name }}')">
+                                    <a href="{{ url_for('app_store.delete_product', product_id=product.id) }}" class="btn btn-sm btn-outline-danger">
                                         <i class="fas fa-trash"></i>
-                                    </button>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -111,7 +111,7 @@
                     <ul class="pagination justify-content-center">
                         {% if products.has_prev %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('products', page=products.prev_num, search=request.args.get('search', '')) }}">Previous</a>
+                                <a class="page-link" href="{{ url_for('app_store.products', page=products.prev_num, search=request.args.get('search', '')) }}">Previous</a>
                             </li>
                         {% endif %}
                         
@@ -119,7 +119,7 @@
                             {% if page_num %}
                                 {% if page_num != products.page %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('products', page=page_num, search=request.args.get('search', '')) }}">{{ page_num }}</a>
+                                        <a class="page-link" href="{{ url_for('app_store.products', page=page_num, search=request.args.get('search', '')) }}">{{ page_num }}</a>
                                     </li>
                                 {% else %}
                                     <li class="page-item active">
@@ -135,7 +135,7 @@
                         
                         {% if products.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('products', page=products.next_num, search=request.args.get('search', '')) }}">Next</a>
+                                <a class="page-link" href="{{ url_for('app_store.products', page=products.next_num, search=request.args.get('search', '')) }}">Next</a>
                             </li>
                         {% endif %}
                     </ul>
@@ -146,7 +146,7 @@
                 <i class="fas fa-box fa-3x text-muted mb-3"></i>
                 <h5 class="text-muted">No products found</h5>
                 <p class="text-muted">Start by adding your first product to the catalog.</p>
-                <a href="{{ url_for('add_product') }}" class="btn btn-primary">
+                <a href="{{ url_for('app_store.add_product') }}" class="btn btn-primary">
                     <i class="fas fa-plus me-2"></i>
                     Add First Product
                 </a>
@@ -182,7 +182,7 @@
 <script>
 function deleteProduct(productId, productName) {
     document.getElementById('productName').textContent = productName;
-    document.getElementById('deleteForm').action = '{{ url_for("delete_product", product_id=0) }}'.replace('0', productId);
+    document.getElementById('deleteForm').action = '{{ url_for("app_store.delete_product", product_id=0) }}'.replace('0', productId);
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }
 </script>

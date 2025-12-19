@@ -57,3 +57,5 @@ with app.app_context():
         print("\n⚠️  WARNING: No admin users found!")
         print("You need at least one admin user to access the user management features.")
         print("Run this script again to create an admin user.") 
+
+app.run()

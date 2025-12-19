@@ -72,13 +72,13 @@
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                            <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('app_store.dashboard') }}">
                                 <i class="fas fa-tachometer-alt me-2"></i>
                                 Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'products' %}active{% endif %}" href="{{ url_for('products') }}">
+                            <a class="nav-link {% if request.endpoint == 'products' %}active{% endif %}" href="{{ url_for('app_store.products') }}">
                                 <i class="fas fa-box me-2"></i>
                                 Product Catalog
                             </a>
@@ -92,14 +92,14 @@
                             <div class="collapse" id="branchProductsSubmenu">
                                 <ul class="nav flex-column ms-3">
                                     <li class="nav-item">
-                                        <a class="nav-link {% if request.endpoint == 'branch_products' and not request.args.get('branch_id') %}active{% endif %}" href="{{ url_for('branch_products') }}">
+                                        <a class="nav-link {% if request.endpoint == 'branch_products' and not request.args.get('branch_id') %}active{% endif %}" href="{{ url_for('app_store.branch_products') }}">
                                             <i class="fas fa-list me-2"></i>
                                             All Branches
                                         </a>
                                     </li>
                                     {% for branch in current_user.get_accessible_branches() %}
                                     <li class="nav-item">
-                                        <a class="nav-link {% if request.endpoint == 'branch_products' and request.args.get('branch_id')|int == branch.id %}active{% endif %}" href="{{ url_for('branch_products', branch_id=branch.id) }}">
+                                        <a class="nav-link {% if request.endpoint == 'branch_products' and request.args.get('branch_id')|int == branch.id %}active{% endif %}" href="{{ url_for('app_store.branch_products', branch_id=branch.id) }}">
                                             <i class="fas fa-store me-2"></i>
                                             {{ branch.name }}
                                         </a>
@@ -109,13 +109,13 @@
                             </div>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'stock_transfers' %}active{% endif %}" href="{{ url_for('stock_transfers') }}">
+                            <a class="nav-link {% if request.endpoint == 'stock_transfers' %}active{% endif %}" href="{{ url_for('app_store.stock_transfers') }}">
                                 <i class="fas fa-exchange-alt me-2"></i>
                                 Stock Transfers
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'inventory_report' %}active{% endif %}" href="{{ url_for('inventory_report') }}">
+                            <a class="nav-link {% if request.endpoint == 'inventory_report' %}active{% endif %}" href="{{ url_for('app_store.inventory_report') }}">
                                 <i class="fas fa-chart-bar me-2"></i>
                                 Inventory Report
                             </a>
@@ -126,7 +126,7 @@
                     
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('logout') }}">
+                            <a class="nav-link" href="{{ url_for('app_store.logout') }}">
                                 <i class="fas fa-sign-out-alt me-2"></i>
                                 Logout
                             </a>
@@ -172,7 +172,7 @@
     <script>
         // Auto-expand branch products dropdown if on branch products page
         document.addEventListener('DOMContentLoaded', function() {
-            {% if request.endpoint == 'branch_products' %}
+            {% if request.endpoint == 'app_store.branch_products' %}
                 var branchDropdown = document.getElementById('branchProductsSubmenu');
                 if (branchDropdown) {
                     var bsCollapse = new bootstrap.Collapse(branchDropdown, {

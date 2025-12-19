@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "cashier_portal/base.html" %}
 
 {% block title %}Expenses{% endblock %}
 
@@ -11,7 +11,7 @@
                     <h5 class="mb-0">
                         <i class="fas fa-receipt me-2"></i>Expenses Management
                     </h5>
-                    <a href="{{ url_for('add_expense_v2') }}" class="btn btn-primary">
+                    <a href="{{ url_for('app_cashier.add_expense_v2') }}" class="btn btn-primary">
                         <i class="fas fa-plus me-2"></i>Add Expense
                     </a>
                 </div>
@@ -55,7 +55,7 @@
                             </form>
                         </div>
                         <div class="col-md-3">
-                            <a href="{{ url_for('expenses_v2') }}" class="btn btn-outline-secondary">
+                            <a href="{{ url_for('app_cashier.expenses_v2') }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-times me-2"></i>Clear Filters
                             </a>
                         </div>
@@ -135,15 +135,15 @@
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                            <a href="{{ url_for('view_expense_v2', expense_id=expense.id) }}" class="btn btn-sm btn-outline-primary" title="View">
+                                            <a href="{{ url_for('app_cashier.view_expense_v2', expense_id=expense.id) }}" class="btn btn-sm btn-outline-primary" title="View">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             {% if expense.status == 'pending' %}
-                                            <a href="{{ url_for('edit_expense_v2', expense_id=expense.id) }}" class="btn btn-sm btn-outline-warning" title="Edit">
+                                            <a href="{{ url_for('app_cashier.edit_expense_v2', expense_id=expense.id) }}" class="btn btn-sm btn-outline-warning" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             {% endif %}
-                                            <a href="{{ url_for('add_expense_payment', expense_id=expense.id) }}" class="btn btn-sm btn-outline-success" title="Add Payment">
+                                            <a href="{{ url_for('app_cashier.add_expense_payment', expense_id=expense.id) }}" class="btn btn-sm btn-outline-success" title="Add Payment">
                                                 <i class="fas fa-plus"></i>
                                             </a>
                                         </div>
@@ -156,7 +156,7 @@
                                             <i class="fas fa-receipt fa-3x mb-3"></i>
                                             <h5>No expenses found</h5>
                                             <p>Start by adding your first expense.</p>
-                                            <a href="{{ url_for('add_expense_v2') }}" class="btn btn-primary">
+                                            <a href="{{ url_for('app_cashier.add_expense_v2') }}" class="btn btn-primary">
                                                 <i class="fas fa-plus me-2"></i>Add Expense
                                             </a>
                                         </div>
@@ -173,7 +173,7 @@
                         <ul class="pagination justify-content-center">
                             {% if expenses.has_prev %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('expenses_v2', page=expenses.prev_num, status=status_filter, category=category_filter, payment_status=payment_status_filter) }}">Previous</a>
+                                <a class="page-link" href="{{ url_for('app_cashier.expenses_v2', page=expenses.prev_num, status=status_filter, category=category_filter, payment_status=payment_status_filter) }}">Previous</a>
                             </li>
                             {% endif %}
                             
@@ -181,7 +181,7 @@
                                 {% if page_num %}
                                     {% if page_num != expenses.page %}
                                     <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('expenses_v2', page=page_num, status=status_filter, category=category_filter, payment_status=payment_status_filter) }}">{{ page_num }}</a>
+                                        <a class="page-link" href="{{ url_for('app_cashier.expenses_v2', page=page_num, status=status_filter, category=category_filter, payment_status=payment_status_filter) }}">{{ page_num }}</a>
                                     </li>
                                     {% else %}
                                     <li class="page-item active">
@@ -197,7 +197,7 @@
                             
                             {% if expenses.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="{{ url_for('expenses_v2', page=expenses.next_num, status=status_filter, category=category_filter, payment_status=payment_status_filter) }}">Next</a>
+                                <a class="page-link" href="{{ url_for('app_cashier.expenses_v2', page=expenses.next_num, status=status_filter, category=category_filter, payment_status=payment_status_filter) }}">Next</a>
                             </li>
                             {% endif %}
                         </ul>

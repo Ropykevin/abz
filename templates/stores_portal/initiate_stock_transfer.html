@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "stores_portal/base.html" %}
 
 {% block title %}Initiate Stock Transfer - Store Keeper Portal{% endblock %}
 {% block page_title %}Initiate Stock Transfer{% endblock %}
@@ -80,7 +80,7 @@
                     </div>
 
                     <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('stock_transfers') }}" class="btn btn-secondary">
+                        <a href="{{ url_for('app_store.stock_transfers') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>
                             Back to Transfers
                         </a>

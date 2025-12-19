@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ABZ Cashier Portal{% endblock %}</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
-    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="icon" type="image/png" href="/static/cashier_portal/assets/img/logo.png">
+    <link rel="shortcut icon" type="image/png" href="/static/cashier_portal/assets/img/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -69,7 +69,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
+            <a class="navbar-brand" href="{{ url_for('app_cashier.index') }}">
                 <i class="fas fa-cash-register me-2"></i>ABZ Cashier Portal
             </a>
             
@@ -81,32 +81,32 @@
                 <ul class="navbar-nav me-auto">
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                            <a class="nav-link" href="{{ url_for('app_cashier.dashboard') }}">
                                 <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('orders') }}">
+                            <a class="nav-link" href="{{ url_for('app_cashier.orders') }}">
                                 <i class="fas fa-shopping-cart me-1"></i>Orders
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('payments') }}">
+                            <a class="nav-link" href="{{ url_for('app_cashier.payments') }}">
                                 <i class="fas fa-credit-card me-1"></i>Payments
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('sales_report') }}">
+                            <a class="nav-link" href="{{ url_for('app_cashier.sales_report') }}">
                                 <i class="fas fa-chart-bar me-1"></i>Sales Report
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('expenses_v2') }}">
+                            <a class="nav-link" href="{{ url_for('app_cashier.expenses_v2') }}">
                                 <i class="fas fa-receipt me-1"></i>Expenses
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('deliveries') }}">
+                            <a class="nav-link" href="{{ url_for('app_cashier.deliveries') }}">
                                 <i class="fas fa-truck me-1"></i>Deliveries
                             </a>
                         </li>
@@ -119,19 +119,19 @@
                                 <i class="fas fa-user me-1"></i>{{ current_user.firstname }}
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('profile') }}">
+                                <li><a class="dropdown-item" href="{{ url_for('app_cashier.profile') }}">
                                     <i class="fas fa-user-circle me-2"></i>Profile
                                 </a></li>
 
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                                <li><a class="dropdown-item" href="{{ url_for('app_cashier.logout') }}">
                                     <i class="fas fa-sign-out-alt me-2"></i>Logout
                                 </a></li>
                             </ul>
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('login') }}">
+                            <a class="nav-link" href="{{ url_for('app_cashier.login') }}">
                                 <i class="fas fa-sign-in-alt me-1"></i>Login
                             </a>
                         </li>

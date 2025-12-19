@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "stores_portal/base.html" %}
 
 {% block title %}Add Branch Product - Store Keeper Portal{% endblock %}
 {% block page_title %}Add Product to Branch{% endblock %}
@@ -79,7 +79,7 @@
                     </div>
 
                     <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('branch_products') }}" class="btn btn-secondary">
+                        <a href="{{ url_for('app_store.branch_products') }}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i>
                             Back to Branch Products
                         </a>

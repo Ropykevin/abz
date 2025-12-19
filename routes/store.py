@@ -2,17 +2,22 @@ from flask import render_template, request, redirect, url_for, flash, jsonify, s
 from flask_login import login_user, login_required, logout_user, current_user
 from datetime import timezone, timedelta
 from sqlalchemy.orm import joinedload
-from models import *
+from models.admin import Branch, Category, User, ProductCatalog, BranchProduct, Order, OrderItem, Payment, StockTransaction, Supplier, PurchaseOrder, PurchaseOrderItem, Quotation, QuotationItem, SubCategory, Expense, Delivery, DeliveryPayment
+
 
 #New Compied Code
 from flask import Blueprint
-from config.appconfig import Config,login_manager,current_user,login_required,datetime,timedelta
+from config.appconfig import Config,login_manager,login_required,current_user,login_user,role_required,logout_user, datetime,timedelta
 from config.dbconfig import db,EAT
-from helpers.cloudinary_upload import *
-from helpers.pdf_generate import *
 
-app = Blueprint('app1', __name__)
-app.config.from_object(Config)
+app_store = Blueprint('app_store', __name__)
+
+login_manager.login_view = 'app_store.login'
+
+# Configuration for file uploads (keeping for fallback)
+UPLOAD_FOLDER = Config().UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = Config().ALLOWED_EXTENSIONS
+#End New Compiled Code
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -24,8 +29,8 @@ def load_user(user_id):
 EAT = timezone(timedelta(hours=3))
 
 # Routes
-@app.route('/')
-@login_required
+@app_store.route('/')
+@login_required('app_store')
 def dashboard():
     """Main dashboard for store keeper"""
     # Get accessible branches for current user
@@ -52,14 +57,14 @@ def dashboard():
         BranchProduct.branchid.in_([b.id for b in accessible_branches])
     ).order_by(StockTransaction.created_at.desc()).limit(10).all()
     
-    return render_template('dashboard.html', 
+    return render_template('stores_portal/dashboard.html', 
                          total_products=total_products,
                          low_stock_products=low_stock_products,
                          out_of_stock_products=out_of_stock_products,
                          recent_transactions=recent_transactions,
                          accessible_branches=accessible_branches)
 
-@app.route('/login', methods=['GET', 'POST'])
+@app_store.route('/login', methods=['GET', 'POST'])
 def login():
     """Login page"""
     if request.method == 'POST':
@@ -80,7 +85,7 @@ def login():
             # Check if user has store keeper role or similar
             if user.role in ['store_keeper', 'inventory_keeper', 'admin', 'Store', 'store', 'STORE']:
                 login_user(user)
-                return redirect(url_for('dashboard'))
+                return redirect(url_for('app_store.dashboard'))
             else:
                 flash(f'Access denied. Your role "{user.role}" does not have permission to access this portal. Required roles: Store, store_keeper, inventory_keeper, or admin.', 'error')
         else:
@@ -89,17 +94,17 @@ def login():
             else:
                 flash('Invalid email. No user found with this email address.', 'error')
     
-    return render_template('login.html')
+    return render_template('stores_portal/login.html')
 
-@app.route('/logout')
-@login_required
+@app_store.route('/logout')
+@login_required('app_store')
 def logout():
     """Logout user"""
     logout_user()
-    return redirect(url_for('login'))
+    return redirect(url_for('app_store.login'))
 
-@app.route('/products')
-@login_required
+@app_store.route('/products')
+@login_required('app_store')
 def products():
     """Product catalog management"""
     page = request.args.get('page', 1, type=int)
@@ -113,10 +118,10 @@ def products():
     categories = Category.query.all()
     subcategories = SubCategory.query.all()
     
-    return render_template('products.html', products=products, categories=categories, subcategories=subcategories)
+    return render_template('stores_portal/products.html', products=products, categories=categories, subcategories=subcategories)
 
-@app.route('/products/add', methods=['GET', 'POST'])
-@login_required
+@app_store.route('/products/add', methods=['GET', 'POST'])
+@login_required('app_store')
 def add_product():
     """Add new product to catalog"""
     if request.method == 'POST':
@@ -151,17 +156,17 @@ def add_product():
             db.session.add(product)
             db.session.commit()
             flash('Product added successfully!', 'success')
-            return redirect(url_for('products'))
+            return redirect(url_for('app_store.products'))
         except Exception as e:
             db.session.rollback()
             flash(f'Error adding product: {str(e)}', 'error')
     
     categories = Category.query.all()
     subcategories = SubCategory.query.all()
-    return render_template('add_product.html', categories=categories, subcategories=subcategories)
+    return render_template('stores_portal/add_product.html', categories=categories, subcategories=subcategories)
 
-@app.route('/products/edit/<int:product_id>', methods=['GET', 'POST'])
-@login_required
+@app_store.route('/products/edit/<int:product_id>', methods=['GET', 'POST'])
+@login_required('app_store')
 def edit_product(product_id):
     """Edit product in catalog"""
     product = ProductCatalog.query.get_or_404(product_id)
@@ -192,17 +197,17 @@ def edit_product(product_id):
         try:
             db.session.commit()
             flash('Product updated successfully!', 'success')
-            return redirect(url_for('products'))
+            return redirect(url_for('app_store.products'))
         except Exception as e:
             db.session.rollback()
             flash(f'Error updating product: {str(e)}', 'error')
     
     categories = Category.query.all()
     subcategories = SubCategory.query.all()
-    return render_template('edit_product.html', product=product, categories=categories, subcategories=subcategories)
+    return render_template('stores_portal/edit_product.html', product=product, categories=categories, subcategories=subcategories)
 
-@app.route('/branch-products')
-@login_required
+@app_store.route('/branch-products')
+@login_required('app_store')
 def branch_products():
     """Branch products management"""
     page = request.args.get('page', 1, type=int)
@@ -258,7 +263,7 @@ def branch_products():
     # Get paginated products
     branch_products_paginated = query.paginate(page=page, per_page=20, error_out=False)
     
-    return render_template('branch_products.html', 
+    return render_template('stores_portal/branch_products.html', 
                          branch_products=branch_products_paginated, 
                          accessible_branches=accessible_branches,
                          selected_branch=branch_id,
@@ -269,8 +274,8 @@ def branch_products():
                          out_of_stock_count=out_of_stock_count,
                          in_stock_count=in_stock_count)
 
-@app.route('/branch-products/add', methods=['GET', 'POST'])
-@login_required
+@app_store.route('/branch-products/add', methods=['GET', 'POST'])
+@login_required('app_store')
 def add_branch_product():
     """Add product to branch"""
     if request.method == 'POST':
@@ -284,7 +289,7 @@ def add_branch_product():
         # Check if user has access to this branch
         if not current_user.has_branch_access(int(branch_id)):
             flash('You do not have access to this branch.', 'error')
-            return redirect(url_for('add_branch_product'))
+            return redirect(url_for('app_store.add_branch_product'))
         
         branch_product = BranchProduct(
             branchid=branch_id,
@@ -299,19 +304,19 @@ def add_branch_product():
             db.session.add(branch_product)
             db.session.commit()
             flash('Product added to branch successfully!', 'success')
-            return redirect(url_for('branch_products'))
+            return redirect(url_for('app_store.branch_products'))
         except Exception as e:
             db.session.rollback()
             flash(f'Error adding product to branch: {str(e)}', 'error')
     
     accessible_branches = current_user.get_accessible_branches()
     catalog_products = ProductCatalog.query.all()
-    return render_template('add_branch_product.html', 
+    return render_template('stores_portal/add_branch_product.html', 
                          accessible_branches=accessible_branches, 
                          catalog_products=catalog_products)
 
-@app.route('/branch-products/edit/<int:branch_product_id>', methods=['GET', 'POST'])
-@login_required
+@app_store.route('/branch-products/edit/<int:branch_product_id>', methods=['GET', 'POST'])
+@login_required('app_store')
 def edit_branch_product(branch_product_id):
     """Edit branch product"""
     branch_product = BranchProduct.query.get_or_404(branch_product_id)
@@ -319,7 +324,7 @@ def edit_branch_product(branch_product_id):
     # Check access
     if not current_user.has_branch_access(branch_product.branchid):
         flash('You do not have access to this branch product.', 'error')
-        return redirect(url_for('branch_products'))
+        return redirect(url_for('app_store.branch_products'))
     
     if request.method == 'POST':
         branch_product.buyingprice = request.form.get('buyingprice', type=float)
@@ -330,18 +335,18 @@ def edit_branch_product(branch_product_id):
         try:
             db.session.commit()
             flash('Branch product updated successfully!', 'success')
-            return redirect(url_for('branch_products'))
+            return redirect(url_for('app_store.branch_products'))
         except Exception as e:
             db.session.rollback()
             flash(f'Error updating branch product: {str(e)}', 'error')
     
     accessible_branches = current_user.get_accessible_branches()
-    return render_template('edit_branch_product.html', 
+    return render_template('stores_portal/edit_branch_product.html', 
                          branch_product=branch_product, 
                          accessible_branches=accessible_branches)
 
-@app.route('/stock-transfers')
-@login_required
+@app_store.route('/stock-transfers')
+@login_required('app_store')
 def stock_transfers():
     """Stock transfer management"""
     page = request.args.get('page', 1, type=int)
@@ -357,12 +362,12 @@ def stock_transfers():
         BranchProduct.branchid.in_(branch_ids)
     ).order_by(StockTransfer.created_at.desc()).paginate(page=page, per_page=20, error_out=False)
     
-    return render_template('stock_transfers.html', 
+    return render_template('stores_portal/stock_transfers.html', 
                          transfers=transfers, 
                          accessible_branches=accessible_branches)
 
-@app.route('/stock-transfers/initiate', methods=['GET', 'POST'])
-@login_required
+@app_store.route('/stock-transfers/initiate', methods=['GET', 'POST'])
+@login_required('app_store')
 def initiate_stock_transfer():
     """Initiate stock transfer between branches"""
     if request.method == 'POST':
@@ -376,17 +381,17 @@ def initiate_stock_transfer():
         if not (current_user.has_branch_access(int(from_branch_id)) and 
                 current_user.has_branch_access(int(to_branch_id))):
             flash('You do not have access to one or both branches.', 'error')
-            return redirect(url_for('initiate_stock_transfer'))
+            return redirect(url_for('app_store.initiate_stock_transfer'))
         
         # Get the source branch product
         source_bp = BranchProduct.query.get(branch_product_id)
         if not source_bp or source_bp.branchid != int(from_branch_id):
             flash('Invalid source product.', 'error')
-            return redirect(url_for('initiate_stock_transfer'))
+            return redirect(url_for('app_store.initiate_stock_transfer'))
         
         if source_bp.stock < quantity:
             flash('Insufficient stock for transfer.', 'error')
-            return redirect(url_for('initiate_stock_transfer'))
+            return redirect(url_for('app_store.initiate_stock_transfer'))
         
         # Check if destination branch has this product (same catalog_id)
         dest_bp = BranchProduct.query.filter_by(
@@ -461,10 +466,10 @@ def initiate_stock_transfer():
             flash(f'Error processing stock transfer: {str(e)}', 'error')
     
     accessible_branches = current_user.get_accessible_branches()
-    return render_template('initiate_stock_transfer.html', accessible_branches=accessible_branches)
+    return render_template('stores_portal/initiate_stock_transfer.html', accessible_branches=accessible_branches)
 
-@app.route('/api/branch-products/<int:branch_id>')
-@login_required
+@app_store.route('/api/branch-products/<int:branch_id>')
+@login_required('app_store')
 def get_branch_products(branch_id):
     """API endpoint to get products for a specific branch"""
     if not current_user.has_branch_access(branch_id):
@@ -485,8 +490,8 @@ def get_branch_products(branch_id):
         print(f"ERROR in get_branch_products: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/transfer-products/<int:from_branch_id>/<int:to_branch_id>')
-@login_required
+@app_store.route('/api/transfer-products/<int:from_branch_id>/<int:to_branch_id>')
+@login_required('app_store')
 def get_transfer_products(from_branch_id, to_branch_id):
     """API endpoint to get products that exist in both branches (same catalog_id)"""
     print(f"\n=== API CALL: get_transfer_products ===")
@@ -536,8 +541,8 @@ def get_transfer_products(from_branch_id, to_branch_id):
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/inventory-report')
-@login_required
+@app_store.route('/inventory-report')
+@login_required('app_store')
 def inventory_report():
     """Generate inventory report"""
     accessible_branches = current_user.get_accessible_branches()
@@ -547,7 +552,7 @@ def inventory_report():
     
     if branch_id and not current_user.has_branch_access(branch_id):
         flash('You do not have access to this branch.', 'error')
-        return redirect(url_for('inventory_report'))
+        return redirect(url_for('app_store.inventory_report'))
     
     # Build query with eager loading to prevent N+1 queries
     query = BranchProduct.query.options(
@@ -587,7 +592,7 @@ def inventory_report():
     
     stats_result = stats.first()
     
-    return render_template('inventory_report.html', 
+    return render_template('stores_portal/inventory_report.html', 
                          branch_products=branch_products_paginated, 
                          accessible_branches=accessible_branches,
                          selected_branch=branch_id,
@@ -596,8 +601,8 @@ def inventory_report():
                          low_stock_count=stats_result.low_stock_count or 0,
                          out_of_stock_count=stats_result.out_of_stock_count or 0)
 
-@app.route('/products/delete/<int:product_id>', methods=['POST'])
-@login_required
+@app_store.route('/products/delete/<int:product_id>', methods=['POST'])
+@login_required('app_store')
 def delete_product(product_id):
     """Delete product from catalog"""
     product = ProductCatalog.query.get_or_404(product_id)
@@ -606,7 +611,7 @@ def delete_product(product_id):
         # Check if product is used in any branch
         if BranchProduct.query.filter_by(catalog_id=product.id).first():
             flash('Cannot delete product. It is being used in one or more branches.', 'error')
-            return redirect(url_for('products'))
+            return redirect(url_for('app_store.products'))
         
         db.session.delete(product)
         db.session.commit()
@@ -615,10 +620,10 @@ def delete_product(product_id):
         db.session.rollback()
         flash(f'Error deleting product: {str(e)}', 'error')
     
-    return redirect(url_for('products'))
+    return redirect(url_for('app_store.products'))
 
-@app.route('/branch-products/adjust-stock/<int:branch_product_id>', methods=['POST'])
-@login_required
+@app_store.route('/branch-products/adjust-stock/<int:branch_product_id>', methods=['POST'])
+@login_required('app_store')
 def adjust_stock(branch_product_id):
     """Adjust stock for branch product"""
     branch_product = BranchProduct.query.get_or_404(branch_product_id)
@@ -626,7 +631,7 @@ def adjust_stock(branch_product_id):
     # Check access
     if not current_user.has_branch_access(branch_product.branchid):
         flash('You do not have access to this branch product.', 'error')
-        return redirect(url_for('branch_products'))
+        return redirect(url_for('app_store.branch_products'))
     
     adjustment_type = request.form['adjustment_type']
     quantity = float(request.form['quantity'])
@@ -638,7 +643,7 @@ def adjust_stock(branch_product_id):
     elif adjustment_type == 'remove':
         if (branch_product.stock or 0) < quantity:
             flash('Insufficient stock for removal.', 'error')
-            return redirect(url_for('branch_products'))
+            return redirect(url_for('app_store.branch_products'))
         new_stock = (branch_product.stock or 0) - quantity
         transaction_type = 'remove'
     elif adjustment_type == 'set':
@@ -668,9 +673,10 @@ def adjust_stock(branch_product_id):
         db.session.rollback()
         flash(f'Error adjusting stock: {str(e)}', 'error')
     
-    return redirect(url_for('branch_products'))
+    return redirect(url_for('app_store.branch_products'))
 
-@app.route('/debug/users')
+@app_store.route('/debug/users')
+@login_required('app_store')
 def debug_users():
     """Debug route to check users and their roles"""
     users = User.query.all()
@@ -687,7 +693,8 @@ def debug_users():
         })
     return jsonify(user_info)
 
-@app.route('/debug/fix-user/<int:user_id>')
+@app_store.route('/debug/fix-user/<int:user_id>')
+@login_required('app_store')
 def fix_user(user_id):
     """Debug route to fix user role and password"""
     user = User.query.get(user_id)
@@ -702,7 +709,3 @@ def fix_user(user_id):
     
     return jsonify({'message': f'User {user.email} already has correct role: {user.role}'})
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)

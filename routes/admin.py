@@ -11,8 +11,7 @@ from sqlalchemy.exc import IntegrityError
 import os
 from sqlalchemy import or_, func, and_, case
 # Import models after db is initialized
-from models.admin import Branch, Category, User, OrderType, Order, OrderItem, StockTransaction, Payment, SubCategory, ProductDescription, Expense, Supplier, PurchaseOrder, PurchaseOrderItem, ProductCatalog, BranchProduct, Quotation, QuotationItem
-
+from models.admin import Branch, Category, User, ProductCatalog, BranchProduct, Order, OrderItem, Payment, StockTransaction, Supplier, PurchaseOrder, PurchaseOrderItem, Quotation, QuotationItem, SubCategory, Expense, Delivery, DeliveryPayment
 
 #New Compied Code
 from flask import Blueprint
@@ -741,7 +740,7 @@ def products():
                              display_filter=display_filter)
     else:
         # Return full page for regular requests
-        return render_template('products.html', 
+        return render_template('admin_portal/products.html', 
                              categories=categories, 
                              subcategories=subcategories,
                              products=products, 
@@ -1342,7 +1341,7 @@ def add_category():
         flash('Category added successfully', 'success')
         return redirect(url_for('app_admin.categories'))
     
-    return render_template('add_category.html')
+    return render_template('admin_portal/add_category.html')
 
 @app_admin.route('/edit_category/<int:id>', methods=['GET', 'POST'])
 @login_required('app_admin')
@@ -2662,7 +2661,7 @@ def users():
         for user in users:
             user.created_at_adjusted = user.created_at + timedelta(hours=3)
         
-        return render_template('users.html', users=users, pagination=pagination)
+        return render_template('admin_portal/users.html', users=users, pagination=pagination)
     except Exception as e:
         print(f"Error in users route: {e}")
         db.session.rollback()
@@ -2727,7 +2726,7 @@ def add_user():
     
     # Get all branches for the form
     branches = Branch.query.order_by(Branch.name).all()
-    return render_template('add_user.html', branches=branches)
+    return render_template('admin_portal/add_user.html', branches=branches)
 
 @app_admin.route('/edit_user/<int:id>', methods=['GET', 'POST'])
 @login_required('app_admin')
@@ -2788,7 +2787,7 @@ def edit_user(id):
     
     # Get all branches for the form
     branches = Branch.query.order_by(Branch.name).all()
-    return render_template('edit_user.html', user=user, branches=branches)
+    return render_template('admin_portal/edit_user.html', user=user, branches=branches)
 
 @app_admin.route('/delete_user/<int:id>', methods=['POST'])
 @login_required('app_admin')
@@ -3469,46 +3468,58 @@ def branches():
         )
         
         branches = pagination.items
-        print(f"Branches found: {len(branches)}")
+        print(f"Branches found: {len(branches)}") 
         
         # Get branch statistics in bulk queries for better performance
         branch_ids = [branch.id for branch in branches]
         
-        # Get product counts for all branches in one query
-        product_counts = db.session.query(
-            BranchProduct.branchid,
-            db.func.count(BranchProduct.id).label('product_count')
-        ).filter(BranchProduct.branchid.in_(branch_ids)).group_by(BranchProduct.branchid).all()
-        product_count_dict = {bid: count for bid, count in product_counts}
+        # Initialize dictionaries with default values
+        product_count_dict = {}
+        order_count_dict = {}
+        revenue_dict = {}
         
-        # Get order counts for all branches in one query
-        order_counts = db.session.query(
-            Order.branchid,
-            db.func.count(Order.id).label('order_count')
-        ).filter(Order.branchid.in_(branch_ids)).group_by(Order.branchid).all()
-        order_count_dict = {bid: count for bid, count in order_counts}
-        
-        # Get revenue for all branches using Payment.amount (matching sales_report calculation)
-        revenue_data = db.session.query(
-            Order.branchid,
-            db.func.sum(Payment.amount).label('revenue')
-        ).join(Payment, Order.id == Payment.orderid).filter(
-            Order.branchid.in_(branch_ids),
-            Payment.payment_status == 'completed'
-        ).group_by(Order.branchid).all()
-        revenue_dict = {bid: float(revenue) if revenue else 0.0 for bid, revenue in revenue_data}
+        # Only run queries if there are branches
+        if branch_ids:
+            # Get product counts for all branches in one query
+            product_counts = db.session.query(
+                BranchProduct.branchid,
+                db.func.count(BranchProduct.id).label('product_count')
+            ).filter(BranchProduct.branchid.in_(branch_ids)).group_by(BranchProduct.branchid).all()
+            product_count_dict = {bid: count for bid, count in product_counts}
+            
+            # Get order counts for all branches in one query
+            order_counts = db.session.query(
+                Order.branchid,
+                db.func.count(Order.id).label('order_count')
+            ).filter(Order.branchid.in_(branch_ids)).group_by(Order.branchid).all()
+            order_count_dict = {bid: count for bid, count in order_counts}
+            
+            # Get revenue for all branches using Payment.amount (matching sales_report calculation)
+            revenue_data = db.session.query(
+                Order.branchid,
+                db.func.sum(Payment.amount).label('revenue')
+            ).join(Payment, Order.id == Payment.orderid).filter(
+                Order.branchid.in_(branch_ids),
+                Payment.payment_status == 'completed'
+            ).group_by(Order.branchid).all()
+            revenue_dict = {bid: float(revenue) if revenue else 0.0 for bid, revenue in revenue_data}
         
         # Add calculated attributes to branch objects
         for branch in branches:
             branch.product_count = product_count_dict.get(branch.id, 0)
             branch.order_count = order_count_dict.get(branch.id, 0)
             branch.revenue = revenue_dict.get(branch.id, 0.0)
+            print('----------branch.product_count-------------',branch.product_count)
         
-        return render_template('branches.html', branches=branches, pagination=pagination)
+        print(f"Rendering template with {len(branches)} branches")
+        return render_template('admin_portal/branches.html', branches=branches, pagination=pagination)
     except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
         print(f"Error in branches route: {e}")
+        print(f"Full traceback:\n{error_traceback}")
         db.session.rollback()
-        flash('An error occurred while loading branches. Please try again.', 'error')
+        flash(f'An error occurred while loading branches: {str(e)}. Please try again.', 'error')
         return redirect(url_for('app_admin.index'))
 
 @app_admin.route('/debug_payment_status')
@@ -3615,6 +3626,7 @@ def debug_branches_revenue():
 @login_required('app_admin')
 @role_required(['admin'],'app_admin') 
 def add_branch():
+    print('add ndani')
     if request.method == 'POST':
         # Get form data
         name = request.form.get('name')
@@ -3647,7 +3659,7 @@ def add_branch():
             flash('An error occurred while adding the branch. Please try again.', 'error')
             return redirect(url_for('app_admin.add_branch'))
     
-    return render_template('add_branch.html')
+    return render_template('admin_portal/add_branch.html')
 
 @app_admin.route('/edit_branch/<int:id>', methods=['GET', 'POST'])
 @login_required('app_admin')
@@ -3897,7 +3909,7 @@ def categories():
         execution_time = time.time() - start_time
         print(f"Categories route executed in {execution_time:.2f} seconds")
         
-        return render_template('categories.html', 
+        return render_template('admin_portal/categories.html', 
                              categories=categories, 
                              pagination=pagination,
                              total_products=total_products,
@@ -3948,7 +3960,7 @@ def category_details(category_id):
             category_revenue = 0
             products_by_branch = []
         
-        return render_template('category_details.html', 
+        return render_template('admin_portal/category_details.html', 
                              category=category,
                              total_products=total_products,
                              products=products,
@@ -3982,7 +3994,7 @@ def subcategories():
         for subcategory in subcategories:
             subcategory.created_at_adjusted = subcategory.created_at + timedelta(hours=3)
         
-        return render_template('subcategories.html', subcategories=subcategories, pagination=pagination)
+        return render_template('admin_portal/subcategories.html', subcategories=subcategories, pagination=pagination)
     except Exception as e:
         print(f"Error in subcategories route: {e}")
         db.session.rollback()
@@ -4042,8 +4054,18 @@ def add_subcategory():
             return redirect(url_for('app_admin.add_subcategory'))
     
     # Get all categories for the dropdown
-    categories = Category.query.order_by(Category.name).all()
-    return render_template('add_subcategory.html', categories=categories)
+    try:
+        categories = Category.query.order_by(Category.name).all()
+        print(f"✅ Found {len(categories)} categories for dropdown")
+        return render_template('admin_portal/add_subcategory.html', categories=categories)
+    except Exception as e:
+        import traceback
+        print(f"❌ Error in add_subcategory GET request: {str(e)}")
+        print(f"❌ Error type: {type(e).__name__}")
+        print(f"❌ Full traceback:")
+        traceback.print_exc()
+        flash(f'An error occurred while loading the page: {str(e)}', 'error')
+        return redirect(url_for('app_admin.index'))
 
 @app_admin.route('/edit_subcategory/<int:id>', methods=['GET', 'POST'])
 @login_required('app_admin')
@@ -4100,7 +4122,7 @@ def edit_subcategory(id):
     
     # Get all categories for the dropdown
     categories = Category.query.order_by(Category.name).all()
-    return render_template('edit_subcategory.html', subcategory=subcategory, categories=categories)
+    return render_template('admin_portal/edit_subcategory.html', subcategory=subcategory, categories=categories)
 
 @app_admin.route('/delete_subcategory/<int:id>', methods=['POST'])
 @login_required('app_admin')
@@ -4161,7 +4183,7 @@ def subcategory_details(subcategory_id):
             ProductCatalog.subcategory_id == subcategory_id
         ).group_by(Branch.id, Branch.name).all()
         
-        return render_template('subcategory_details.html', 
+        return render_template('admin_portal/subcategory_details.html', 
                              subcategory=subcategory,
                              total_products=total_products,
                              products=products,
@@ -5636,7 +5658,12 @@ def handle_integrity_error(error):
 @app_admin.errorhandler(Exception)
 def handle_general_error(error):
     db.session.rollback()
+    import traceback
     print(f"General error: {error}")
+    print(f"Error type: {type(error).__name__}")
+    print(f"Error message: {str(error)}")
+    print(f"Full traceback:")
+    traceback.print_exc()
     flash('An unexpected error occurred. Please try again.', 'error')
     # Only redirect if we have a valid referrer and it's not the same page
     if request.referrer and request.referrer != request.url:
