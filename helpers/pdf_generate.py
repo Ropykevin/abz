@@ -1,3 +1,11 @@
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from datetime import datetime
+import pytz, os
+
 # Helper functions for PDF generation
 def format_currency(amount):
     """Format currency for PDFs"""
@@ -16,15 +24,7 @@ def create_delivery_note_pdf_a4(order, user_data, output_path):
     """
     Create a professional delivery note PDF (A4 size)
     output_path can be a file path (string) or BytesIO object
-    """
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from datetime import datetime
-    import pytz
-    
+    """    
     # Set timezone to East Africa Time
     EAT = pytz.timezone('Africa/Nairobi')
     

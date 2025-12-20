@@ -17,6 +17,7 @@ from models.admin import Branch, Category, User, ProductCatalog, BranchProduct, 
 from flask import Blueprint
 from config.appconfig import Config,login_manager,login_required,current_user,login_user,role_required,logout_user, datetime,timedelta
 from config.dbconfig import db,EAT
+from helpers.cloudinary_upload import upload_to_cloudinary,delete_from_cloudinary
 
 app_admin = Blueprint('app_admin', __name__)
 
@@ -581,48 +582,6 @@ def dashboard():
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def upload_to_cloudinary(file):
-    """Upload file to Cloudinary and return the URL"""
-    try:
-        # Upload the file to Cloudinary
-        result = cloudinary.uploader.upload(
-            file,
-            folder="abz_products",  # Organize images in a folder
-            resource_type="auto",
-            transformation=[
-                {'width': 800, 'height': 800, 'crop': 'limit'},  # Resize large images
-                {'quality': 'auto:good'}  # Optimize quality
-            ]
-        )
-        return result['secure_url']  # Return the secure HTTPS URL
-    except Exception as e:
-        print(f"Error uploading to Cloudinary: {e}")
-        return None
-
-
-
-
-
-
-
-def delete_from_cloudinary(public_id):
-    """Delete image from Cloudinary using public_id"""
-    try:
-        if public_id:
-            # Extract public_id from URL if full URL is provided
-            if public_id.startswith('http'):
-                # Extract public_id from Cloudinary URL
-                parts = public_id.split('/')
-                if 'abz_products' in parts:
-                    idx = parts.index('abz_products')
-                    public_id = '/'.join(parts[idx:]).split('.')[0]
-            
-            cloudinary.uploader.destroy(public_id)
-            return True
-    except Exception as e:
-        print(f"Error deleting from Cloudinary: {e}")
-        return False
 
 # Custom template filter for formatting quantities
 @app_admin.app_template_filter('format_quantity')

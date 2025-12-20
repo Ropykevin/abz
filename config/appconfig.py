@@ -9,8 +9,6 @@ login_manager = LoginManager()
 login_manager.login_message = 'Please log in to access this page.'
 
 # Custom Login required
-
-
 def login_required(app_name):
     def login_decorator(view_func):
         @wraps(view_func)

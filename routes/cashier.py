@@ -14,10 +14,26 @@ from decimal import Decimal
 from flask import Blueprint
 from config.appconfig import Config,login_manager,current_user,login_required,role_required,logout_user,datetime,timedelta
 from config.dbconfig import db,EAT
+from helpers.cloudinary_upload import upload_to_cloudinary,delete_from_cloudinary
+from helpers.pdf_generate import format_currency,create_delivery_note_pdf_a4
+
 
 app_cashier = Blueprint('app_cashier', __name__)
 
 login_manager.login_view = 'app_cashier.login'
+
+story = []
+
+# Logo (if available)
+logo_path = os.path.join(app.static_folder, 'logo.png')
+if os.path.exists(logo_path):
+    try:
+        logo = Image(logo_path, width=50, height=25)
+        logo.hAlign = 'CENTER'
+        story.append(logo)
+        story.append(Spacer(1, 4))
+    except:
+        pass
 
 # Branch access control helper functions
 def get_user_accessible_branch_ids():
@@ -2123,8 +2139,6 @@ def generate_receipt(payment_id, action='view'):
     doc.allowSplitting = 0
     doc.pageBreakBefore = 0
 
-    story = []
-
     # Styles
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=12, alignment=1, spaceAfter=1)   # tighter
@@ -2132,17 +2146,6 @@ def generate_receipt(payment_id, action='view'):
     header_style = ParagraphStyle('Header', parent=styles['Normal'], fontSize=9, alignment=0, spaceAfter=4, fontName="Helvetica-Bold")
     normal_style = ParagraphStyle('Normal', parent=styles['Normal'], fontSize=8, alignment=0, spaceAfter=2)
     center_style = ParagraphStyle('Center', parent=styles['Normal'], fontSize=8, alignment=1, spaceAfter=2)
-
-    # Logo (if available)
-    logo_path = os.path.join(app.static_folder, 'logo.png')
-    if os.path.exists(logo_path):
-        try:
-            logo = Image(logo_path, width=50, height=25)
-            logo.hAlign = 'CENTER'
-            story.append(logo)
-            story.append(Spacer(1, 4))
-        except:
-            pass
 
     # Header text (tighter spacing)
     story.append(Paragraph("ABZ HARDWARE", title_style))
