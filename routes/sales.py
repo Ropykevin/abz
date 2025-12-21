@@ -1074,7 +1074,6 @@ def api_products():
         cache_key = f"products_{branch_id}_{category_id}_{search}"
     
         # Start with base query - optimized for performance
-        from app.models import BranchProduct, ProductCatalog
         from sqlalchemy import and_
         
         # Use a more efficient query structure
@@ -1097,7 +1096,6 @@ def api_products():
         # Apply additional filters
         if category_id:
             # Filter by category through ProductCatalog -> SubCategory -> Category
-            from app.models import SubCategory
             from sqlalchemy import select
             subcategory_ids = select(SubCategory.id).where(SubCategory.category_id == category_id)
             catalog_ids = select(ProductCatalog.id).where(ProductCatalog.subcategory_id.in_(subcategory_ids))
@@ -1134,7 +1132,9 @@ def api_products():
         return jsonify(result)
         
     except Exception as e:
-        app.logger.error(f"Error in api_products: {str(e)}")
+        import traceback
+        print(f"Error in api_products: {str(e)}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app_sales.route("/api/quotation/<int:quotation_id>/items")
@@ -1163,7 +1163,9 @@ def api_quotation_items(quotation_id):
         })
         
     except Exception as e:
-        app.logger.error(f"Error in api_quotation_items: {str(e)}")
+        import traceback
+        print(f"Error in api_quotation_items: {str(e)}")
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Utility Routes
