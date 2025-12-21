@@ -807,7 +807,7 @@ document.getElementById('createQuotationForm').addEventListener('submit', functi
     .then(data => {
         if (data.success) {
             alert(`Quotation created successfully! Quotation ID: ${data.quotation_id}`);
-            window.location.href = `/quotations/${data.quotation_id}`;
+            window.location.href = `/sales/quotations/${data.quotation_id}`;
         } else {
             alert('Error: ' + data.message);
         }

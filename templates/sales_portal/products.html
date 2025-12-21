@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "sales_portal/base.html" %}
 {% block title %}Products - ABZ Hardware{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -42,7 +42,7 @@
                 <label class="form-label">&nbsp;</label>
                 <div>
                     <button type="submit" class="btn btn-primary">Filter</button>
-                    <a href="{{ url_for('products_page') }}" class="btn btn-secondary">Clear</a>
+                    <a href="{{ url_for('app_sales.products_page') }}" class="btn btn-secondary">Clear</a>
                 </div>
             </div>
         </form>
@@ -112,7 +112,7 @@
             <ul class="pagination justify-content-center">
                 {% if pagination.has_prev %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('products_page', page=pagination.prev_num, search=current_search, category=current_category, branch=current_branch) }}">Previous</a>
+                    <a class="page-link" href="{{ url_for('app_sales.products_page', page=pagination.prev_num, search=current_search, category=current_category, branch=current_branch) }}">Previous</a>
                 </li>
                 {% endif %}
                 
@@ -120,7 +120,7 @@
                     {% if page_num %}
                         {% if page_num != pagination.page %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('products_page', page=page_num, search=current_search, category=current_category, branch=current_branch) }}">{{ page_num }}</a>
+                            <a class="page-link" href="{{ url_for('app_sales.products_page', page=page_num, search=current_search, category=current_category, branch=current_branch) }}">{{ page_num }}</a>
                         </li>
                         {% else %}
                         <li class="page-item active">
@@ -136,7 +136,7 @@
                 
                 {% if pagination.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('products_page', page=pagination.next_num, search=current_search, category=current_category, branch=current_branch) }}">Next</a>
+                    <a class="page-link" href="{{ url_for('app_sales.products_page', page=pagination.next_num, search=current_search, category=current_category, branch=current_branch) }}">Next</a>
                 </li>
                 {% endif %}
             </ul>
@@ -160,7 +160,7 @@
 <script>
 function exportProducts() {
     const params = new URLSearchParams(window.location.search);
-    const url = `/products/export?${params.toString()}`;
+    const url = '{{url_for("app_sales.export_products")}}?${params.toString()}';
     window.open(url, '_blank');
 }
 

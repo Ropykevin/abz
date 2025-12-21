@@ -1,14 +1,9 @@
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-from flask import current_app as app
 
-# Cloudinary Configuration
-cloudinary.config(
-    cloud_name = app.config['CLOUDINARY_CLOUD_NAME'],
-    api_key = app.config['CLOUDINARY_API_KEY'],
-    api_secret = app.config['CLOUDINARY_API_SECRET']
-)
+
+
 
 # Cloudinary helper functions
 def upload_to_cloudinary(file, folder="expense_receipts"):

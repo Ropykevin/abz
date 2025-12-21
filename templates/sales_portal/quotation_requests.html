@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "sales_portal/base.html" %}
 
 {% block title %}Quotation Requests{% endblock %}
 
@@ -30,7 +30,7 @@
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-search"></i> Filter
                     </button>
-                    <a href="{{ url_for('quotation_requests') }}" class="btn btn-secondary">
+                    <a href="{{ url_for('app_sales.quotation_requests') }}" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Clear
                     </a>
                 </div>
@@ -92,17 +92,17 @@
                             </td>
                             <td>{{ req.created_at.strftime('%Y-%m-%d') }}</td>
                             <td>
-                                <a href="{{ url_for('quotation_request_detail', request_id=req.id) }}" 
+                                <a href="{{ url_for('app_sales.quotation_request_detail', request_id=req.id) }}" 
                                    class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-eye"></i> View
                                 </a>
                                 {% if req.status == 'pending' or req.status == 'reviewing' %}
-                                <a href="{{ url_for('convert_quotation_request', request_id=req.id) }}" 
+                                <a href="{{ url_for('app_sales.convert_quotation_request', request_id=req.id) }}" 
                                    class="btn btn-sm btn-success">
                                     <i class="fas fa-exchange-alt"></i> Convert
                                 </a>
                                 {% elif req.quotation_id %}
-                                <a href="{{ url_for('quotation_detail', quotation_id=req.quotation_id) }}" 
+                                <a href="{{ url_for('app_sales.quotation_detail', quotation_id=req.quotation_id) }}" 
                                    class="btn btn-sm btn-info">
                                     <i class="fas fa-file-invoice"></i> View Quote
                                 </a>

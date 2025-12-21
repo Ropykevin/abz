@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "sales_portal/base.html" %}
 
 {% block title %}Quotations{% endblock %}
 
@@ -6,7 +6,7 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Quotations</h2>
-        <a href="{{ url_for('create_quotation') }}" class="btn btn-success">
+        <a href="{{ url_for('app_sales.create_quotation') }}" class="btn btn-success">
             <i class="fas fa-plus"></i> Create Quotation
         </a>
     </div>
@@ -16,24 +16,25 @@
         <div class="card-body">
             <form method="GET" class="row g-3">
                 <div class="col-md-4">
-                    <input type="text" class="form-control" name="search" 
-                           placeholder="Search by customer name..." 
-                           value="{{ current_search }}">
+                    <input type="text" class="form-control" name="search" placeholder="Search by customer name..."
+                        value="{{ current_search }}">
                 </div>
                 <div class="col-md-3">
                     <select class="form-select" name="status">
                         <option value="">All Status</option>
-                        <option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pending</option>
-                        <option value="accepted" {% if current_status == 'accepted' %}selected{% endif %}>Accepted</option>
-                        <option value="rejected" {% if current_status == 'rejected' %}selected{% endif %}>Rejected</option>
-                        <option value="expired" {% if current_status == 'expired' %}selected{% endif %}>Expired</option>
+                        <option value="pending" {% if current_status=='pending' %}selected{% endif %}>Pending</option>
+                        <option value="accepted" {% if current_status=='accepted' %}selected{% endif %}>Accepted
+                        </option>
+                        <option value="rejected" {% if current_status=='rejected' %}selected{% endif %}>Rejected
+                        </option>
+                        <option value="expired" {% if current_status=='expired' %}selected{% endif %}>Expired</option>
                     </select>
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">Filter</button>
                 </div>
                 <div class="col-md-2">
-                    <a href="{{ url_for('quotations_page') }}" class="btn btn-secondary w-100">Clear</a>
+                    <a href="{{ url_for('app_sales.quotations_page') }}" class="btn btn-secondary w-100">Clear</a>
                 </div>
             </form>
         </div>
@@ -92,19 +93,19 @@
                             <td>{{ quotation.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                             <td>
                                 {% if quotation.valid_until %}
-                                    {{ quotation.valid_until.strftime('%Y-%m-%d') }}
+                                {{ quotation.valid_until.strftime('%Y-%m-%d') }}
                                 {% else %}
-                                    <span class="text-muted">No expiry</span>
+                                <span class="text-muted">No expiry</span>
                                 {% endif %}
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{{ url_for('quotation_detail', quotation_id=quotation.id) }}" 
-                                       class="btn btn-sm btn-outline-primary">View</a>
-                                    <a href="{{ url_for('view_quotation_pdf', quotation_id=quotation.id) }}" 
-                                       class="btn btn-sm btn-outline-info" target="_blank">PDF</a>
-                                    <a href="{{ url_for('download_quotation_pdf', quotation_id=quotation.id) }}" 
-                                       class="btn btn-sm btn-outline-secondary">Download</a>
+                                    <a href="{{ url_for('app_sales.quotation_detail', quotation_id=quotation.id) }}"
+                                        class="btn btn-sm btn-outline-primary">View</a>
+                                    <a href="{{ url_for('app_sales.view_quotation_pdf', quotation_id=quotation.id) }}"
+                                        class="btn btn-sm btn-outline-info" target="_blank">PDF</a>
+                                    <a href="{{ url_for('app_sales.download_quotation_pdf', quotation_id=quotation.id) }}"
+                                        class="btn btn-sm btn-outline-secondary">Download</a>
                                 </div>
                             </td>
                         </tr>
@@ -119,43 +120,47 @@
                 <ul class="pagination justify-content-center">
                     {% if pagination.has_prev %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('quotations_page', page=pagination.prev_num, status=current_status, search=current_search) }}">Previous</a>
+                        <a class="page-link"
+                            href="{{ url_for('app_sales.quotations_page', page=pagination.prev_num, status=current_status, search=current_search) }}">Previous</a>
                     </li>
                     {% endif %}
-                    
+
                     {% for page_num in pagination.iter_pages() %}
-                        {% if page_num %}
-                            {% if page_num != pagination.page %}
-                            <li class="page-item">
-                                <a class="page-link" href="{{ url_for('quotations_page', page=page_num, status=current_status, search=current_search) }}">{{ page_num }}</a>
-                            </li>
-                            {% else %}
-                            <li class="page-item active">
-                                <span class="page-link">{{ page_num }}</span>
-                            </li>
-                            {% endif %}
-                        {% else %}
-                        <li class="page-item disabled">
-                            <span class="page-link">...</span>
-                        </li>
-                        {% endif %}
+                    {% if page_num %}
+                    {% if page_num != pagination.page %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="{{ url_for('app_sales.quotations_page', page=page_num, status=current_status, search=current_search) }}">{{
+                            page_num }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
                     {% endfor %}
-                    
+
                     {% if pagination.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('quotations_page', page=pagination.next_num, status=current_status, search=current_search) }}">Next</a>
+                        <a class="page-link"
+                            href="{{ url_for('app_sales.quotations_page', page=pagination.next_num, status=current_status, search=current_search) }}">Next</a>
                     </li>
                     {% endif %}
                 </ul>
             </nav>
             {% endif %}
-            
+
             {% else %}
             <div class="text-center py-4">
                 <i class="fas fa-file-invoice fa-3x text-muted mb-3"></i>
                 <h5 class="text-muted">No quotations found</h5>
                 <p class="text-muted">Create your first quotation to get started.</p>
-                <a href="{{ url_for('create_quotation') }}" class="btn btn-success">
+                <a href="{{ url_for('app_sales.create_quotation') }}" class="btn btn-success">
                     <i class="fas fa-plus"></i> Create Quotation
                 </a>
             </div>
@@ -165,54 +170,54 @@
 </div>
 
 <script>
-// Calculate totals for all quotations dynamically
-document.addEventListener('DOMContentLoaded', function() {
-    const quotationRows = document.querySelectorAll('tr[data-quotation-id]');
-    
-    quotationRows.forEach(row => {
-        const quotationId = row.getAttribute('data-quotation-id');
-        const includeVat = row.getAttribute('data-include-vat') === 'true';
-        const vatRate = parseFloat(row.getAttribute('data-vat-rate')) || 16;
-        const totalCell = row.querySelector('.quotation-total');
-        
-        // Fetch quotation items to calculate total
-        fetch(`/api/quotation/${quotationId}/items`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.items) {
-                    // Calculate subtotal from items
-                    let subtotal = 0;
-                    data.items.forEach(item => {
-                        subtotal += parseFloat(item.quantity) * parseFloat(item.unit_price);
-                    });
-                    
-                    // Calculate VAT and total
-                    const vat = includeVat ? subtotal * (vatRate / 100) : 0;
-                    const total = subtotal + vat;
-                    
-                    // Format currency
-                    const formattedTotal = formatCurrency(total);
-                    
-                    // Update the cell
-                    totalCell.innerHTML = formattedTotal;
-                } else {
-                    totalCell.innerHTML = 'KSh0.00';
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching items for quotation', quotationId, error);
-                totalCell.innerHTML = '<span class="text-danger">Error</span>';
-            });
-    });
-});
+    // Calculate totals for all quotations dynamically
+    document.addEventListener('DOMContentLoaded', function () {
+        const quotationRows = document.querySelectorAll('tr[data-quotation-id]');
 
-// Format currency (without decimal if it's a whole number)
-function formatCurrency(amount) {
-    if (amount === Math.floor(amount)) {
-        return 'KSh' + amount.toLocaleString('en-KE', {maximumFractionDigits: 0});
-    } else {
-        return 'KSh' + amount.toLocaleString('en-KE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        quotationRows.forEach(row => {
+            const quotationId = row.getAttribute('data-quotation-id');
+            const includeVat = row.getAttribute('data-include-vat') === 'true';
+            const vatRate = parseFloat(row.getAttribute('data-vat-rate')) || 16;
+            const totalCell = row.querySelector('.quotation-total');
+
+            // Fetch quotation items to calculate total
+            fetch(`/sales/api/quotation/${quotationId}/items`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.items) {
+                        // Calculate subtotal from items
+                        let subtotal = 0;
+                        data.items.forEach(item => {
+                            subtotal += parseFloat(item.quantity) * parseFloat(item.unit_price);
+                        });
+
+                        // Calculate VAT and total
+                        const vat = includeVat ? subtotal * (vatRate / 100) : 0;
+                        const total = subtotal + vat;
+
+                        // Format currency
+                        const formattedTotal = formatCurrency(total);
+
+                        // Update the cell
+                        totalCell.innerHTML = formattedTotal;
+                    } else {
+                        totalCell.innerHTML = 'KSh0.00';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching items for quotation', quotationId, error);
+                    totalCell.innerHTML = '<span class="text-danger">Error</span>';
+                });
+        });
+    });
+
+    // Format currency (without decimal if it's a whole number)
+    function formatCurrency(amount) {
+        if (amount === Math.floor(amount)) {
+            return 'KSh' + amount.toLocaleString('en-KE', { maximumFractionDigits: 0 });
+        } else {
+            return 'KSh' + amount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
     }
-}
 </script>
-{% endblock %} 
+{% endblock %}

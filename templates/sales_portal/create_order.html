@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "sales_portal/base.html" %}
 {% block title %}Create Walk-in Order - ABZ Hardware{% endblock %}
 
 {% block extra_css %}
@@ -334,7 +334,7 @@
                     </h2>
                     <p class="text-muted mb-0">Add products and create a new walk-in order for your customer</p>
                 </div>
-                <a href="{{ url_for('orders_page') }}" class="btn btn-outline-secondary">
+                <a href="{{ url_for('app_sales.orders_page') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Back to Orders
                 </a>
             </div>
@@ -822,7 +822,7 @@ function loadProducts() {
     if (searchQuery) params.append('search', searchQuery);
     // params.append('limit', '100'); // Removed limit to load all products
     
-    const url = `/api/products?${params.toString()}`;
+    const url = `{{ url_for("app_sales.api_products") }}?${params.toString()}`;
     
     // Add loading class to form
     const productSelect = document.getElementById('product_select');

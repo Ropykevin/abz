@@ -4,27 +4,33 @@ from werkzeug.security import check_password_hash
 import json
 import os
 from datetime import datetime
+from models.admin import User, Branch, Order, OrderType, OrderItem, StockTransaction, Payment, Quotation, QuotationItem, SubCategory, Expense, Delivery, DeliveryPayment, ProductCatalog, BranchProduct, Category
+from models.sales import QuotationRequest
 
-# Import app initialization and models
-from app import init_app, db, login_manager
-from models import *
-from decorators import sales_required
-from app.services import OrderService, StockService, AuthService, QuotationService
 
-# Import email service and config
-from email_service import get_email_service
-from config import config
 
 #New Compiled Code
 from flask import Blueprint
 from config.appconfig import Config
 from config.dbconfig import db
 
-app = Blueprint('app1', __name__)
-app.config.from_object(Config)
+
+#New Compied Code
+from flask import Blueprint
+from config.appconfig import Config,login_manager,login_required,current_user,login_user,role_required,logout_user, datetime,timedelta
+from config.dbconfig import db,EAT
+from helpers.cloudinary_upload import upload_to_cloudinary,delete_from_cloudinary
+
+app_sales = Blueprint('app_sales', __name__)
+
+login_manager.login_view = 'app_sales.login'
+
+# Configuration for file uploads (keeping for fallback)
+UPLOAD_FOLDER = Config().UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = Config().ALLOWED_EXTENSIONS
 
 # Add Jinja2 filter for formatting quantities
-@app.template_filter('format_quantity')
+@app_sales.app_template_filter('format_quantity')
 def format_quantity(value):
     """Format quantity to show decimals only when needed"""
     try:
@@ -34,7 +40,7 @@ def format_quantity(value):
         return str(value)
 
 # Add Jinja2 filter for formatting currency amounts
-@app.template_filter('format_currency')
+@app_sales.app_template_filter('format_currency')
 def format_currency(value):
     """Format currency amounts with commas, without decimal points unless there's a fractional part"""
     try:
@@ -50,7 +56,7 @@ def format_currency(value):
         return str(value)
 
 # Add Jinja2 filter for formatting quantities
-@app.template_filter('format_quantity')
+@app_sales.app_template_filter('format_quantity')
 def format_quantity(value):
     """Format quantities without decimal points unless there's a fractional part"""
     try:
@@ -65,14 +71,12 @@ def format_quantity(value):
     except (ValueError, TypeError):
         return str(value)
 
-with app.app_context():
-    db.create_all()
-    print("✅ All tables created successfully in PostgreSQL.")
 
 # Authentication routes
-@app.route("/login", methods=['GET', 'POST'])
+@app_sales.route("/login", methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        print("Login attempt")
         data = request.get_json()
         user = User.query.filter_by(email=data['email']).first()
         if user and check_password_hash(user.password, data['password']):
@@ -89,18 +93,18 @@ def login():
                 'role': user.role
             }})
         return jsonify({'success': False, 'message': 'Invalid credentials'})
-    return render_template('login.html')
+    return render_template('sales_portal/login.html')
 
-@app.route("/logout")
-@login_required
+@app_sales.route("/logout")
+@login_required(app_sales)
 def logout():
     logout_user()
     flash('You have been logged out successfully.')
-    return redirect(url_for('login'))
+    return redirect(url_for('app_sales.login'))
 
 # Dashboard
-@app.route("/dashboard")
-@login_required
+@app_sales.route("/dashboard")
+@login_required(app_sales)
 def dashboard():
     # Get summary statistics for walk-in orders only
     
@@ -147,14 +151,14 @@ def dashboard():
             'total_amount': total_amount
         })
     
-    return render_template('dashboard.html', 
+    return render_template('sales_portal/dashboard.html', 
                          user=current_user, 
                          stats=stats, 
                          recent_orders=recent_orders_data)
 
 # Order Management Routes
-@app.route("/orders")
-@login_required
+@app_sales.route("/orders")
+@login_required(app_sales)
 def orders_page():
     page = request.args.get('page', 1, type=int)
     status = request.args.get('status', '')
@@ -237,7 +241,7 @@ def orders_page():
     order_types = OrderType.query.filter(OrderType.name.ilike('%walk%')).all()
     branches = Branch.query.all()
 
-    return render_template('orders.html',
+    return render_template('sales_portal/orders.html',
                          user=current_user,
                          orders=orders_data,
                          pagination=orders,
@@ -245,15 +249,15 @@ def orders_page():
                          branches=branches,
                          current_status=status)
 
-@app.route("/orders/<int:order_id>")
-@login_required
+@app_sales.route("/orders/<int:order_id>")
+@login_required(app_sales)
 def order_detail(order_id):
     order = Order.query.get_or_404(order_id)
     
     # Only allow access to walk-in orders created by current user
     if not order.ordertype.name.lower().startswith('walk') or order.userid != current_user.id:
         flash('Access denied. You can only view your own walk-in orders.', 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
     
     order_data = {
         'id': order.id,
@@ -315,12 +319,12 @@ def order_detail(order_id):
     
     order_data['total_amount'] = total_amount
     
-    return render_template('order_detail.html', 
+    return render_template('sales_portal/order_detail.html', 
                           user=current_user, 
                           order=order_data)
 
-@app.route("/orders/<int:order_id>/invoice")
-@login_required
+@app_sales.route("/orders/<int:order_id>/invoice")
+@login_required(app_sales)
 def view_order_invoice(order_id):
     """Generate PDF invoice for a specific order"""
     from app.pdf_utils import create_receipt_pdf, generate_receipt_filename
@@ -333,7 +337,7 @@ def view_order_invoice(order_id):
     # Only allow access to walk-in orders created by current user
     if not order.ordertype.name.lower().startswith('walk') or order.userid != current_user.id:
         flash('Access denied. You can only view invoices for your own walk-in orders.', 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
     
     # Prepare invoice data
     invoice_data = {
@@ -404,7 +408,7 @@ def view_order_invoice(order_id):
         
     except Exception as e:
         flash(f'Error generating PDF: {str(e)}', 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
     
     finally:
         # Clean up temporary file
@@ -414,8 +418,8 @@ def view_order_invoice(order_id):
             except:
                 pass
 
-@app.route("/orders/<int:order_id>/invoice/view")
-@login_required
+@app_sales.route("/orders/<int:order_id>/invoice/view")
+@login_required(app_sales)
 def view_order_invoice_browser(order_id):
     """View PDF invoice in browser for a specific order"""
     from app.pdf_utils import create_receipt_pdf
@@ -427,7 +431,7 @@ def view_order_invoice_browser(order_id):
     # Only allow access to walk-in orders created by current user
     if not order.ordertype.name.lower().startswith('walk') or order.userid != current_user.id:
         flash('Access denied. You can only view invoices for your own walk-in orders.', 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
     
     # Prepare invoice data
     invoice_data = {
@@ -491,7 +495,7 @@ def view_order_invoice_browser(order_id):
         
     except Exception as e:
         flash(f'Error generating PDF: {str(e)}', 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
     
     finally:
         # Clean up temporary file
@@ -502,8 +506,8 @@ def view_order_invoice_browser(order_id):
                 pass
 
 # Order Creation
-@app.route("/orders/create", methods=['GET', 'POST'])
-@login_required
+@app_sales.route("/orders/create", methods=['GET', 'POST'])
+@login_required(app_sales)
 def create_order():
     if request.method == 'POST':
         try:
@@ -520,20 +524,20 @@ def create_order():
                         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                             return jsonify({'success': False, 'message': 'Invalid items data format'})
                         flash('Invalid items data format', 'danger')
-                        return redirect(url_for('create_order'))
+                        return redirect(url_for('app_sales.create_order'))
             
             # Validate required fields
             if not data.get('order_type_id') or not data.get('branch_id'):
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'success': False, 'message': 'Order type and branch are required'})
                 flash('Order type and branch are required', 'danger')
-                return redirect(url_for('create_order'))
+                return redirect(url_for('app_sales.create_order'))
             
             if not data.get('items') or len(data['items']) == 0:
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'success': False, 'message': 'At least one item is required'})
                 flash('At least one item is required', 'danger')
-                return redirect(url_for('create_order'))
+                return redirect(url_for('app_sales.create_order'))
             
             success, order_id, total_amount = OrderService.create_order(data, current_user)
             
@@ -546,35 +550,38 @@ def create_order():
                 })
             
             flash(f'Order created successfully! Order ID: {order_id}', 'success')
-            return redirect(url_for('order_detail', order_id=order_id))
+            return redirect(url_for('app_sales.order_detail', order_id=order_id))
             
         except Exception as e:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': False, 'message': str(e)})
             flash(f'Error creating order: {str(e)}', 'danger')
-            return redirect(url_for('create_order'))
+            return redirect(url_for('app_sales.create_order'))
     
     # GET request - show form
     # Get walk-in order type ID (case-insensitive)
     walk_in_order_type = OrderType.query.filter(OrderType.name.ilike('%walk%')).first()
     if not walk_in_order_type:
-        flash('Walk-in order type not found. Please contact administrator.', 'danger')
-        return redirect(url_for('orders_page'))
+        # Create Walk-in order type if it doesn't exist
+        walk_in_order_type = OrderType(name='Walk-in')
+        db.session.add(walk_in_order_type)
+        db.session.commit()
+        flash('Walk-in order type created successfully.', 'success')
     
     branches = Branch.query.all()
-    from app.models import BranchProduct, ProductCatalog
+    
     products = BranchProduct.query.join(ProductCatalog).filter(BranchProduct.display == True).all()
     subcategories = SubCategory.query.all()
     
-    return render_template('create_order.html',
+    return render_template('sales_portal/create_order.html',
                          user=current_user,
                          walk_in_order_type_id=walk_in_order_type.id,
                          branches=branches,
                          products=products,
                          subcategories=subcategories)
 
-@app.route("/orders/<int:order_id>/edit", methods=['GET', 'POST'])
-@login_required
+@app_sales.route("/orders/<int:order_id>/edit", methods=['GET', 'POST'])
+@login_required(app_sales)
 def edit_order(order_id):
     """Edit an order that is not yet approved"""
     order = Order.query.get_or_404(order_id)
@@ -582,11 +589,11 @@ def edit_order(order_id):
     # Only allow editing of pending walk-in orders created by current user
     if not order.ordertype.name.lower().startswith('walk') or order.userid != current_user.id:
         flash('Access denied. You can only edit your own pending walk-in orders.', 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
     
     if order.approvalstatus:
         flash('Cannot edit approved orders', 'warning')
-        return redirect(url_for('order_detail', order_id=order_id))
+        return redirect(url_for('app_sales.order_detail', order_id=order_id))
     
     if request.method == 'POST':
         try:
@@ -603,20 +610,20 @@ def edit_order(order_id):
                         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                             return jsonify({'success': False, 'message': 'Invalid items data format'})
                         flash('Invalid items data format', 'danger')
-                        return redirect(url_for('edit_order', order_id=order_id))
+                        return redirect(url_for('app_sales.edit_order', order_id=order_id))
             
             # Validate required fields
             if not data.get('branch_id'):
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'success': False, 'message': 'Branch is required'})
                 flash('Branch is required', 'danger')
-                return redirect(url_for('edit_order', order_id=order_id))
+                return redirect(url_for('app_sales.edit_order', order_id=order_id))
             
             if not data.get('items') or len(data['items']) == 0:
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'success': False, 'message': 'At least one item is required'})
                 flash('At least one item is required', 'danger')
-                return redirect(url_for('edit_order', order_id=order_id))
+                return redirect(url_for('app_sales.edit_order', order_id=order_id))
             
             success, message = OrderService.edit_order(order_id, data, current_user)
             
@@ -624,13 +631,13 @@ def edit_order(order_id):
                 return jsonify({'success': success, 'message': message})
             
             flash(message, 'success' if success else 'danger')
-            return redirect(url_for('order_detail', order_id=order_id))
+            return redirect(url_for('app_sales.order_detail', order_id=order_id))
             
         except Exception as e:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': False, 'message': str(e)})
             flash(f'Error editing order: {str(e)}', 'danger')
-            return redirect(url_for('edit_order', order_id=order_id))
+            return redirect(url_for('app_sales.edit_order', order_id=order_id))
     
     # GET request - show edit form
     # Get current order data
@@ -674,15 +681,15 @@ def edit_order(order_id):
     products = BranchProduct.query.join(ProductCatalog).filter(BranchProduct.display == True).all()
     subcategories = SubCategory.query.all()
     
-    return render_template('edit_order.html',
+    return render_template('sales_portal/edit_order.html',
                          user=current_user,
                          order=order_data,
                          branches=branches,
                          products=products,
                          subcategories=subcategories)
 
-@app.route("/orders/<int:order_id>/delete", methods=['POST'])
-@login_required
+@app_sales.route("/orders/<int:order_id>/delete", methods=['POST'])
+@login_required(app_sales)
 def delete_order(order_id):
     """Delete a pending order that is not yet approved"""
     try:
@@ -693,13 +700,13 @@ def delete_order(order_id):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': False, 'message': 'Access denied. You can only delete your own pending walk-in orders.'})
             flash('Access denied. You can only delete your own pending walk-in orders.', 'danger')
-            return redirect(url_for('orders_page'))
+            return redirect(url_for('app_sales.orders_page'))
         
         if order.approvalstatus:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': False, 'message': 'Cannot delete approved orders'})
             flash('Cannot delete approved orders', 'warning')
-            return redirect(url_for('order_detail', order_id=order_id))
+            return redirect(url_for('app_sales.order_detail', order_id=order_id))
         
         # Delete order logic (implemented directly to avoid service issues)
         try:
@@ -729,24 +736,24 @@ def delete_order(order_id):
             return jsonify({'success': success, 'message': message})
         
         flash(message, 'success' if success else 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
         
     except Exception as e:
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'success': False, 'message': str(e)})
         flash(f'Error deleting order: {str(e)}', 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
 
 # Product Management Routes
-@app.route("/products")
-@login_required
+@app_sales.route("/products")
+@login_required(app_sales)
 def products_page():
     page = request.args.get('page', 1, type=int)
     category = request.args.get('category', '')
     branch = request.args.get('branch', '')
     search = request.args.get('search', '')
     
-    from app.models import BranchProduct, ProductCatalog, SubCategory, Category
+    
     query = BranchProduct.query.join(ProductCatalog)
     
     if category:
@@ -793,7 +800,7 @@ def products_page():
     subcategories = SubCategory.query.all()
     branches = Branch.query.all()
     
-    return render_template('products.html', 
+    return render_template('sales_portal/products.html', 
                          user=current_user, 
                          products=products_data,
                          pagination=products,
@@ -803,8 +810,8 @@ def products_page():
                          current_branch=branch,
                          current_search=search)
 
-@app.route("/products/export")
-@login_required
+@app_sales.route("/products/export")
+@login_required(app_sales)
 def export_products():
     """Export products to CSV"""
     import csv
@@ -898,8 +905,8 @@ def export_products():
             except:
                 pass
 
-@app.route("/products/<int:product_id>/edit", methods=['GET', 'POST'])
-@login_required
+@app_sales.route("/products/<int:product_id>/edit", methods=['GET', 'POST'])
+@login_required(app_sales)
 def edit_product(product_id):
     from app.models import BranchProduct
     branch_product = BranchProduct.query.get_or_404(product_id)
@@ -922,7 +929,7 @@ def edit_product(product_id):
             
             db.session.commit()
             flash('Product updated successfully!', 'success')
-            return redirect(url_for('products_page'))
+            return redirect(url_for('app_sales.products_page'))
             
         except Exception as e:
             flash(f'Error updating product: {str(e)}', 'danger')
@@ -930,20 +937,19 @@ def edit_product(product_id):
     subcategories = SubCategory.query.all()
     branches = Branch.query.all()
     
-    return render_template('edit_product.html',
+    return render_template('sales_portal/edit_product.html',
                          user=current_user,
                          product=branch_product,
                          subcategories=subcategories,
                          branches=branches)
 
 # Stock Management Routes
-@app.route("/stock")
-@login_required
+@app_sales.route("/stock")
+@login_required(app_sales)
 def stock_page():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '')
     
-    from app.models import BranchProduct, ProductCatalog, SubCategory, Category
     query = BranchProduct.query.join(ProductCatalog)
     
     if search:
@@ -982,14 +988,14 @@ def stock_page():
             }
         })
     
-    return render_template('stock.html', 
+    return render_template('sales_portal/stock.html', 
                          user=current_user, 
                          products=products_data,
                          pagination=products,
                          current_search=search)
 
-@app.route("/stock/add", methods=['POST'])
-@login_required
+@app_sales.route("/stock/add", methods=['POST'])
+@login_required(app_sales)
 def add_stock():
     try:
         if request.is_json:
@@ -1014,16 +1020,16 @@ def add_stock():
             })
         
         flash(message, 'success')
-        return redirect(url_for('stock_page'))
+        return redirect(url_for('app_sales.stock_page'))
         
     except Exception as e:
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'success': False, 'message': str(e)})
         flash(f'Error adding stock: {str(e)}', 'danger')
-        return redirect(url_for('stock_page'))
+        return redirect(url_for('app_sales.stock_page'))
 
-@app.route("/stock/remove", methods=['POST'])
-@login_required
+@app_sales.route("/stock/remove", methods=['POST'])
+@login_required(app_sales)
 def remove_stock():
     try:
         if request.is_json:
@@ -1048,17 +1054,17 @@ def remove_stock():
             })
         
         flash(message, 'success')
-        return redirect(url_for('stock_page'))
+        return redirect(url_for('app_sales.stock_page'))
         
     except Exception as e:
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'success': False, 'message': str(e)})
         flash(f'Error removing stock: {str(e)}', 'danger')
-        return redirect(url_for('stock_page'))
+        return redirect(url_for('app_sales.stock_page'))
 
 # API Routes for AJAX
-@app.route("/api/products")
-@login_required
+@app_sales.route("/api/products")
+@login_required(app_sales)
 def api_products():
     try:
         category_id = request.args.get('category_id', type=int)
@@ -1131,8 +1137,8 @@ def api_products():
         app.logger.error(f"Error in api_products: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route("/api/quotation/<int:quotation_id>/items")
-@login_required
+@app_sales.route("/api/quotation/<int:quotation_id>/items")
+@login_required(app_sales)
 def api_quotation_items(quotation_id):
     """API endpoint to get quotation items for calculating totals"""
     try:
@@ -1161,8 +1167,8 @@ def api_quotation_items(quotation_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Utility Routes
-@app.route("/categories")
-@login_required
+@app_sales.route("/categories")
+@login_required(app_sales)
 def get_categories():
     categories = Category.query.all()
     return jsonify([{
@@ -1171,8 +1177,8 @@ def get_categories():
         'description': cat.description
     } for cat in categories])
 
-@app.route("/branches")
-@login_required
+@app_sales.route("/branches")
+@login_required(app_sales)
 def get_branches():
     branches = Branch.query.all()
     return jsonify([{
@@ -1181,8 +1187,8 @@ def get_branches():
         'location': branch.location
     } for branch in branches])
 
-@app.route("/order-types")
-@login_required
+@app_sales.route("/order-types")
+@login_required(app_sales)
 def get_order_types():
     order_types = OrderType.query.all()
     return jsonify([{
@@ -1190,15 +1196,15 @@ def get_order_types():
         'name': ot.name
     } for ot in order_types])
 
-@app.route("/")
+@app_sales.route("/")
 def index():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+        return redirect(url_for('app_sales.dashboard'))
+    return redirect(url_for('app_sales.login'))
 
 # Quotation Management Routes
-@app.route("/quotation-requests")
-@login_required
+@app_sales.route("/quotation-requests")
+@login_required(app_sales)
 def quotation_requests():
     """View all quotation requests from site owners"""
     status_filter = request.args.get('status', '')  # Empty string means show all
@@ -1222,14 +1228,14 @@ def quotation_requests():
     
     requests = query.order_by(QuotationRequest.created_at.desc()).all()
     
-    return render_template('quotation_requests.html',
+    return render_template('sales_portal/quotation_requests.html',
                          user=current_user,
                          requests=requests,
                          status_filter=status_filter,
                          current_search=search)
 
-@app.route("/quotation-requests/<int:request_id>")
-@login_required
+@app_sales.route("/quotation-requests/<int:request_id>")
+@login_required(app_sales)
 def quotation_request_detail(request_id):
     """View quotation request details"""
     req = QuotationRequest.query.get_or_404(request_id)
@@ -1250,21 +1256,21 @@ def quotation_request_detail(request_id):
         # If import fails, site_owner will remain None
         pass
     
-    return render_template('quotation_request_detail.html',
+    return render_template('sales_portal/quotation_request_detail.html',
                          user=current_user,
                          request=req,
                          items=items,
                          site_owner=site_owner)
 
-@app.route("/quotation-requests/<int:request_id>/convert", methods=['GET', 'POST'])
-@login_required
+@app_sales.route("/quotation-requests/<int:request_id>/convert", methods=['GET', 'POST'])
+@login_required(app_sales)
 def convert_quotation_request(request_id):
     """Convert a quotation request to a quotation"""
     req = QuotationRequest.query.get_or_404(request_id)
     
     if req.status == 'quoted' and req.quotation_id:
         flash('This request has already been converted to a quotation', 'info')
-        return redirect(url_for('quotation_detail', quotation_id=req.quotation_id))
+        return redirect(url_for('app_sales.quotation_detail', quotation_id=req.quotation_id))
     
     if request.method == 'POST':
         try:
@@ -1348,7 +1354,7 @@ def convert_quotation_request(request_id):
                 })
             
             flash(f'Quotation created successfully from request! Quotation ID: {quotation_id}', 'success')
-            return redirect(url_for('quotation_detail', quotation_id=quotation_id))
+            return redirect(url_for('app_sales.quotation_detail', quotation_id=quotation_id))
             
         except Exception as e:
             import traceback
@@ -1365,15 +1371,15 @@ def convert_quotation_request(request_id):
     site = req.site if hasattr(req, 'site') and req.site else None
     branches = Branch.query.all()
     
-    return render_template('convert_quotation_request.html',
+    return render_template('sales_portal/convert_quotation_request.html',
                          user=current_user,
                          request=req,
                          items=items,
                          site=site,
                          branches=branches)
 
-@app.route("/quotations")
-@login_required
+@app_sales.route("/quotations")
+@login_required(app_sales)
 def quotations_page():
     """List all quotations"""
     page = request.args.get('page', 1, type=int)
@@ -1393,15 +1399,15 @@ def quotations_page():
     
     quotations = query.order_by(Quotation.created_at.desc()).paginate(page=page, per_page=20, error_out=False)
     
-    return render_template('quotations.html',
+    return render_template('sales_portal/quotations.html',
                          user=current_user,
                          quotations=quotations.items,
                          pagination=quotations,
                          current_status=status,
                          current_search=search)
 
-@app.route("/quotations/create", methods=['GET', 'POST'])
-@login_required
+@app_sales.route("/quotations/create", methods=['GET', 'POST'])
+@login_required(app_sales)
 def create_quotation():
     """Create a new quotation"""
     if request.method == 'POST':
@@ -1419,20 +1425,20 @@ def create_quotation():
                         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                             return jsonify({'success': False, 'message': 'Invalid items data format'})
                         flash('Invalid items data format', 'danger')
-                        return redirect(url_for('create_quotation'))
+                        return redirect(url_for('app_sales.create_quotation'))
             
             # Validate required fields
             if not data.get('customer_name') or not data.get('branch_id'):
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'success': False, 'message': 'Customer name and branch are required'})
                 flash('Customer name and branch are required', 'danger')
-                return redirect(url_for('create_quotation'))
+                return redirect(url_for('app_sales.create_quotation'))
             
             if not data.get('items') or len(data['items']) == 0:
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'success': False, 'message': 'At least one item is required'})
                 flash('At least one item is required', 'danger')
-                return redirect(url_for('create_quotation'))
+                return redirect(url_for('app_sales.create_quotation'))
             
             success, quotation_id, total_amount = QuotationService.create_quotation(data, current_user)
             
@@ -1445,13 +1451,13 @@ def create_quotation():
                 })
             
             flash(f'Quotation created successfully! Quotation ID: {quotation_id}', 'success')
-            return redirect(url_for('quotation_detail', quotation_id=quotation_id))
+            return redirect(url_for('app_sales.quotation_detail', quotation_id=quotation_id))
             
         except Exception as e:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': False, 'message': str(e)})
             flash(f'Error creating quotation: {str(e)}', 'danger')
-            return redirect(url_for('create_quotation'))
+            return redirect(url_for('app_sales.create_quotation'))
     
     # GET request - show form
     branches = Branch.query.all()
@@ -1459,14 +1465,14 @@ def create_quotation():
     products = BranchProduct.query.join(ProductCatalog).filter(BranchProduct.display == True).all()
     subcategories = SubCategory.query.all()
     
-    return render_template('create_quotation.html',
+    return render_template('sales_portal/create_quotation.html',
                          user=current_user,
                          branches=branches,
                          products=products,
                          subcategories=subcategories)
 
-@app.route("/quotations/<int:quotation_id>")
-@login_required
+@app_sales.route("/quotations/<int:quotation_id>")
+@login_required(app_sales)
 def quotation_detail(quotation_id):
     """View quotation details"""
     quotation = Quotation.query.get_or_404(quotation_id)
@@ -1474,14 +1480,14 @@ def quotation_detail(quotation_id):
     # Check if user has access to this quotation
     if current_user.role != 'admin' and quotation.created_by != current_user.id:
         flash('Access denied', 'danger')
-        return redirect(url_for('quotations_page'))
+        return redirect(url_for('app_sales.quotations_page'))
     
-    return render_template('quotation_detail.html',
+    return render_template('sales_portal/quotation_detail.html',
                          user=current_user,
                          quotation=quotation)
 
-@app.route("/quotations/<int:quotation_id>/pdf")
-@login_required
+@app_sales.route("/quotations/<int:quotation_id>/pdf")
+@login_required(app_sales)
 def view_quotation_pdf(quotation_id):
     """View quotation PDF in browser"""
     quotation = Quotation.query.get_or_404(quotation_id)
@@ -1489,7 +1495,7 @@ def view_quotation_pdf(quotation_id):
     # Check if user has access to this quotation
     if current_user.role != 'admin' and quotation.created_by != current_user.id:
         flash('Access denied', 'danger')
-        return redirect(url_for('quotations_page'))
+        return redirect(url_for('app_sales.quotations_page'))
     
     # Generate PDF for quotation
     from app.pdf_utils import create_quotation_pdf_a4
@@ -1513,7 +1519,7 @@ def view_quotation_pdf(quotation_id):
         
     except Exception as e:
         flash(f'Error generating PDF: {str(e)}', 'danger')
-        return redirect(url_for('quotation_detail', quotation_id=quotation_id))
+        return redirect(url_for('app_sales.quotation_detail', quotation_id=quotation_id))
     
     finally:
         # Clean up temporary file
@@ -1523,8 +1529,8 @@ def view_quotation_pdf(quotation_id):
             except:
                 pass
 
-@app.route("/quotations/<int:quotation_id>/pdf/download")
-@login_required
+@app_sales.route("/quotations/<int:quotation_id>/pdf/download")
+@login_required(app_sales)
 def download_quotation_pdf(quotation_id):
     """Download quotation PDF"""
     quotation = Quotation.query.get_or_404(quotation_id)
@@ -1532,7 +1538,7 @@ def download_quotation_pdf(quotation_id):
     # Check if user has access to this quotation
     if current_user.role != 'admin' and quotation.created_by != current_user.id:
         flash('Access denied', 'danger')
-        return redirect(url_for('quotations_page'))
+        return redirect(url_for('app_sales.quotations_page'))
     
     # Generate PDF for quotation
     from app.pdf_utils import create_quotation_pdf_a4
@@ -1557,7 +1563,7 @@ def download_quotation_pdf(quotation_id):
         
     except Exception as e:
         flash(f'Error generating PDF: {str(e)}', 'danger')
-        return redirect(url_for('quotation_detail', quotation_id=quotation_id))
+        return redirect(url_for('app_sales.quotation_detail', quotation_id=quotation_id))
     
     finally:
         # Clean up temporary file
@@ -1567,8 +1573,8 @@ def download_quotation_pdf(quotation_id):
             except:
                 pass
 
-@app.route("/quotations/<int:quotation_id>/status", methods=['POST'])
-@login_required
+@app_sales.route("/quotations/<int:quotation_id>/status", methods=['POST'])
+@login_required(app_sales)
 def update_quotation_status(quotation_id):
     """Update quotation status"""
     quotation = Quotation.query.get_or_404(quotation_id)
@@ -1599,8 +1605,8 @@ def update_quotation_status(quotation_id):
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
 
-@app.route("/quotations/<int:quotation_id>/edit", methods=['GET', 'POST'])
-@login_required
+@app_sales.route("/quotations/<int:quotation_id>/edit", methods=['GET', 'POST'])
+@login_required(app_sales)
 def edit_quotation(quotation_id):
     """Edit quotation"""
     quotation = Quotation.query.get_or_404(quotation_id)
@@ -1608,7 +1614,7 @@ def edit_quotation(quotation_id):
     # Check if user has access to this quotation
     if current_user.role != 'admin' and quotation.created_by != current_user.id:
         flash('Access denied', 'danger')
-        return redirect(url_for('quotations_page'))
+        return redirect(url_for('app_sales.quotations_page'))
     
     if request.method == 'POST':
         try:
@@ -1736,7 +1742,7 @@ def edit_quotation(quotation_id):
             
             db.session.commit()
             flash('Quotation updated successfully!', 'success')
-            return redirect(url_for('quotation_detail', quotation_id=quotation.id))
+            return redirect(url_for('app_sales.quotation_detail', quotation_id=quotation.id))
             
         except Exception as e:
             db.session.rollback()
@@ -1748,15 +1754,15 @@ def edit_quotation(quotation_id):
     products = BranchProduct.query.join(ProductCatalog).options(db.joinedload(BranchProduct.catalog_product)).filter(BranchProduct.display == True).all()
     subcategories = SubCategory.query.all()
     
-    return render_template('edit_quotation.html',
+    return render_template('sales_portal/edit_quotation.html',
                          user=current_user,
                          quotation=quotation,
                          branches=branches,
                          products=products,
                          subcategories=subcategories)
 
-@app.route("/quotations/<int:quotation_id>/delete", methods=['POST'])
-@login_required
+@app_sales.route("/quotations/<int:quotation_id>/delete", methods=['POST'])
+@login_required(app_sales)
 def delete_quotation(quotation_id):
     """Delete quotation"""
     quotation = Quotation.query.get_or_404(quotation_id)
@@ -1780,8 +1786,8 @@ def delete_quotation(quotation_id):
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
 
-@app.route("/orders/<int:order_id>/negotiate", methods=['GET', 'POST'])
-@login_required
+@app_sales.route("/orders/<int:order_id>/negotiate", methods=['GET', 'POST'])
+@login_required(app_sales)
 def negotiate_order_prices(order_id):
     """Show price negotiation page for an order"""
     order = Order.query.get_or_404(order_id)
@@ -1789,11 +1795,11 @@ def negotiate_order_prices(order_id):
     # Only allow negotiation for pending walk-in orders created by current user
     if not order.ordertype.name.lower().startswith('walk') or order.userid != current_user.id:
         flash('Access denied. You can only negotiate prices for your own pending walk-in orders.', 'danger')
-        return redirect(url_for('orders_page'))
+        return redirect(url_for('app_sales.orders_page'))
     
     if order.approvalstatus:
         flash('Cannot negotiate prices for approved orders', 'warning')
-        return redirect(url_for('order_detail', order_id=order_id))
+        return redirect(url_for('app_sales.order_detail', order_id=order_id))
     
     if request.method == 'POST':
         try:
@@ -1837,13 +1843,13 @@ def negotiate_order_prices(order_id):
                     })
             
             flash(f'{total_updated} items updated successfully', 'success')
-            return redirect(url_for('order_detail', order_id=order_id))
+            return redirect(url_for('app_sales.order_detail', order_id=order_id))
             
         except Exception as e:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'success': False, 'message': str(e)})
             flash(f'Error: {str(e)}', 'danger')
-            return redirect(url_for('negotiate_order_prices', order_id=order_id))
+            return redirect(url_for('app_sales.negotiate_order_prices', order_id=order_id))
     
     # GET request - show negotiation form
     order_items_data = []
@@ -1882,7 +1888,7 @@ def negotiate_order_prices(order_id):
             'total': final_price * item.quantity
         })
     
-    return render_template('negotiate_prices.html',
+    return render_template('sales_portal/negotiate_prices.html',
                          user=current_user,
                          order=order,
                          order_items=order_items_data)

@@ -259,17 +259,19 @@
                     </div>
                 </div>
 
-                <!-- Customer Portal -->
+                
+
+                <!-- Stores Portal -->
                 <div class="col-md-6 col-lg-4">
                     <div class="module-card">
-                        <div class="module-icon customer-icon">
-                            <i class="fas fa-shopping-bag"></i>
+                        <div class="module-icon stores-icon">
+                            <i class="fas fa-warehouse"></i>
                         </div>
-                        <h3>Customer Portal</h3>
-                        <p>Browse products, place orders, track purchases, and manage your account. Customer-facing
-                            e-commerce platform.</p>
-                        <a href="" class="module-link customer-link">
-                            <i class="fas fa-arrow-right me-2"></i>Access Customer Portal
+                        <h3>Stores Portal</h3>
+                        <p>Manage product catalog, inventory, stock levels, and warehouse operations. Store keeper
+                            management system.</p>
+                        <a href="{{ url_for('app_store.login') }}" class="module-link stores-link">
+                            <i class="fas fa-arrow-right me-2"></i>Access Stores Portal
                         </a>
                     </div>
                 </div>
@@ -283,7 +285,7 @@
                         <h3>Sales Portal</h3>
                         <p>Manage walk-in orders, quotations, product requests, and stock. Sales team operations and
                             management.</p>
-                        <a href="" class="module-link sales-link">
+                        <a href="{{url_for('app_sales.login')}}" class="module-link sales-link">
                             <i class="fas fa-arrow-right me-2"></i>Access Sales Portal
                         </a>
                     </div>
@@ -304,20 +306,22 @@
                     </div>
                 </div>
 
-                <!-- Stores Portal -->
+                <!-- Customer Portal -->
                 <div class="col-md-6 col-lg-4">
                     <div class="module-card">
-                        <div class="module-icon stores-icon">
-                            <i class="fas fa-warehouse"></i>
+                        <div class="module-icon customer-icon">
+                            <i class="fas fa-shopping-bag"></i>
                         </div>
-                        <h3>Stores Portal</h3>
-                        <p>Manage product catalog, inventory, stock levels, and warehouse operations. Store keeper
-                            management system.</p>
-                        <a href="{{ url_for('app_store.login') }}" class="module-link stores-link">
-                            <i class="fas fa-arrow-right me-2"></i>Access Stores Portal
+                        <h3>Customer Portal</h3>
+                        <p>Browse products, place orders, track purchases, and manage your account. Customer-facing
+                            e-commerce platform.</p>
+                        <a href="" class="module-link customer-link">
+                            <i class="fas fa-arrow-right me-2"></i>Access Customer Portal
                         </a>
                     </div>
                 </div>
+
+                
             </div>
         </div>
 

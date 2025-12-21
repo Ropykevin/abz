@@ -24,17 +24,6 @@ login_manager.login_view = 'app_cashier.login'
 
 story = []
 
-# Logo (if available)
-logo_path = os.path.join(app.static_folder, 'logo.png')
-if os.path.exists(logo_path):
-    try:
-        logo = Image(logo_path, width=50, height=25)
-        logo.hAlign = 'CENTER'
-        story.append(logo)
-        story.append(Spacer(1, 4))
-    except:
-        pass
-
 # Branch access control helper functions
 def get_user_accessible_branch_ids():
     """Get list of branch IDs the current user has access to"""

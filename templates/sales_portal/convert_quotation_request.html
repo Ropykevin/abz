@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "sales_portal/base.html" %}
 
 {% block title %}Convert Request #{{ request.id }} to Quotation{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="mb-3">
-        <a href="{{ url_for('quotation_request_detail', request_id=request.id) }}" class="btn btn-secondary">
+        <a href="{{ url_for('app_sales.quotation_request_detail', request_id=request.id) }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Request
         </a>
     </div>
@@ -25,24 +25,25 @@
                             <div class="card-body">
                                 <div class="mb-3">
                                     <label for="customer_name" class="form-label">Customer Name *</label>
-                                    <input type="text" class="form-control" id="customer_name" name="customer_name" 
-                                           value="{% if site %}{{ site.site_name }}{% endif %}" required>
+                                    <input type="text" class="form-control" id="customer_name" name="customer_name"
+                                        value="{% if site %}{{ site.site_name }}{% endif %}" required>
                                 </div>
                                 <div class="mb-3">
                                     <label for="customer_email" class="form-label">Customer Email</label>
                                     <input type="email" class="form-control" id="customer_email" name="customer_email"
-                                           value="{% if site %}{{ site.contact_email or '' }}{% endif %}">
+                                        value="{% if site %}{{ site.contact_email or '' }}{% endif %}">
                                 </div>
                                 <div class="mb-3">
                                     <label for="customer_phone" class="form-label">Customer Phone</label>
                                     <input type="tel" class="form-control" id="customer_phone" name="customer_phone"
-                                           value="{% if site %}{{ site.contact_phone or '' }}{% endif %}">
+                                        value="{% if site %}{{ site.contact_phone or '' }}{% endif %}">
                                 </div>
                                 <div class="mb-3">
                                     <label for="branch_id" class="form-label">Branch *</label>
                                     <select class="form-select" id="branch_id" name="branch_id" required>
                                         {% for branch in branches %}
-                                        <option value="{{ branch.id }}" {% if branch.id == request.branch_id %}selected{% endif %}>
+                                        <option value="{{ branch.id }}" {% if branch.id==request.branch_id %}selected{%
+                                            endif %}>
                                             {{ branch.name }} - {{ branch.location }}
                                         </option>
                                         {% endfor %}
@@ -54,7 +55,8 @@
                                 </div>
                                 <div class="mb-3">
                                     <label for="notes" class="form-label">Notes</label>
-                                    <textarea class="form-control" id="notes" name="notes" rows="3">{{ request.notes or '' }}</textarea>
+                                    <textarea class="form-control" id="notes" name="notes"
+                                        rows="3">{{ request.notes or '' }}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -66,12 +68,14 @@
                             <div class="card-body">
                                 <div class="mb-3">
                                     <label for="discount_percentage" class="form-label">Discount (%)</label>
-                                    <input type="number" class="form-control" id="discount_percentage" name="discount_percentage" 
-                                           min="0" max="100" step="0.01" value="0" onchange="updateTotal()" oninput="updateTotal()">
+                                    <input type="number" class="form-control" id="discount_percentage"
+                                        name="discount_percentage" min="0" max="100" step="0.01" value="0"
+                                        onchange="updateTotal()" oninput="updateTotal()">
                                 </div>
                                 <div class="mb-3">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="include_vat" name="include_vat" onchange="updateTotal()">
+                                        <input class="form-check-input" type="checkbox" id="include_vat"
+                                            name="include_vat" onchange="updateTotal()">
                                         <label class="form-check-label" for="include_vat">
                                             <strong>Include VAT (16%)</strong>
                                         </label>
@@ -79,7 +83,8 @@
                                 </div>
                                 <div class="mb-3">
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="show_quantity_in_pdf" name="show_quantity_in_pdf" checked>
+                                        <input class="form-check-input" type="checkbox" id="show_quantity_in_pdf"
+                                            name="show_quantity_in_pdf" checked>
                                         <label class="form-check-label" for="show_quantity_in_pdf">
                                             <strong>Show Quantity in PDF</strong>
                                         </label>
@@ -105,27 +110,31 @@
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label">Quantity *</label>
-                                                <input type="number" class="form-control item-quantity" name="quantity[]" 
-                                                       value="{{ item.quantity }}" step="0.001" min="0" required onchange="updateItemTotal(this)" oninput="updateItemTotal(this)">
+                                                <input type="number" class="form-control item-quantity"
+                                                    name="quantity[]" value="{{ item.quantity }}" step="0.001" min="0"
+                                                    required onchange="updateItemTotal(this)"
+                                                    oninput="updateItemTotal(this)">
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label">Unit</label>
-                                                <input type="text" class="form-control item-unit" name="unit[]" 
-                                                       value="{{ item.unit or '' }}" placeholder="e.g., bags">
+                                                <input type="text" class="form-control item-unit" name="unit[]"
+                                                    value="{{ item.unit or '' }}" placeholder="e.g., bags">
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label">Unit Price (KSh) *</label>
-                                                <input type="number" class="form-control item-unit-price" name="unit_price[]" 
-                                                       step="0.01" min="0" required onchange="updateItemTotal(this)" oninput="updateItemTotal(this)">
+                                                <input type="number" class="form-control item-unit-price"
+                                                    name="unit_price[]" step="0.01" min="0" required
+                                                    onchange="updateItemTotal(this)" oninput="updateItemTotal(this)">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">Price Unit (Optional)</label>
-                                                <input type="text" class="form-control item-price-unit" name="price_unit[]" 
-                                                       placeholder="e.g., per floor">
+                                                <input type="text" class="form-control item-price-unit"
+                                                    name="price_unit[]" placeholder="e.g., per floor">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label">Total</label>
-                                                <input type="text" class="form-control item-total" readonly value="KSh 0.00">
+                                                <input type="text" class="form-control item-total" readonly
+                                                    value="KSh 0.00">
                                             </div>
                                         </div>
                                     </div>
@@ -172,7 +181,8 @@
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
-                    <a href="{{ url_for('quotation_request_detail', request_id=request.id) }}" class="btn btn-secondary">Cancel</a>
+                    <a href="{{ url_for('app_sales.quotation_request_detail', request_id=request.id) }}"
+                        class="btn btn-secondary">Cancel</a>
                     <button type="button" id="createQuotationBtn" class="btn btn-success">
                         <i class="fas fa-exchange-alt"></i> Create Quotation
                     </button>
@@ -185,92 +195,93 @@
 
 {% block head %}
 <script>
-function updateItemTotal(input) {
-    const row = input.closest('.item-row');
-    const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
-    const unitPrice = parseFloat(row.querySelector('.item-unit-price').value) || 0;
-    const total = quantity * unitPrice;
-    row.querySelector('.item-total').value = 'KSh ' + total.toFixed(2);
-    updateTotal();
-}
-
-function updateTotal() {
-    let subtotal = 0;
-    document.querySelectorAll('.item-row').forEach(row => {
+    function updateItemTotal(input) {
+        const row = input.closest('.item-row');
         const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
         const unitPrice = parseFloat(row.querySelector('.item-unit-price').value) || 0;
-        subtotal += quantity * unitPrice;
-    });
-
-    const discountPercentage = parseFloat(document.getElementById('discount_percentage').value) || 0;
-    const discountAmount = subtotal * (discountPercentage / 100);
-    const subtotalAfterDiscount = subtotal - discountAmount;
-
-    const includeVat = document.getElementById('include_vat').checked;
-    const vatRate = 16;
-    const vatAmount = includeVat ? subtotalAfterDiscount * (vatRate / 100) : 0;
-    const total = subtotalAfterDiscount + vatAmount;
-
-    document.getElementById('subtotalAmount').textContent = 'KSh ' + subtotal.toFixed(2);
-    document.getElementById('discountAmount').textContent = 'KSh ' + discountAmount.toFixed(2);
-    document.getElementById('vatAmount').textContent = 'KSh ' + vatAmount.toFixed(2);
-    document.getElementById('totalAmount').textContent = 'KSh ' + total.toFixed(2);
-
-    const discountRow = document.getElementById('discountRow');
-    const hasDiscount = discountPercentage > 0;
-    discountRow.style.display = hasDiscount ? '' : 'none';
-
-    const vatRow = document.getElementById('vatRow');
-    vatRow.style.display = includeVat ? '' : 'none';
-}
-
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle button click instead of form submit
-    const createBtn = document.getElementById('createQuotationBtn');
-    if (!createBtn) {
-        console.error('Create quotation button not found!');
-        return;
+        const total = quantity * unitPrice;
+        row.querySelector('.item-total').value = 'KSh ' + total.toFixed(2);
+        updateTotal();
     }
-    
-    createBtn.addEventListener('click', async function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const items = [];
-    document.querySelectorAll('.item-row').forEach(row => {
-        const quantity = parseFloat(row.querySelector('.item-quantity').value);
-        const unitPrice = parseFloat(row.querySelector('.item-unit-price').value);
-        
-        if (quantity > 0 && unitPrice > 0) {
-            items.push({
-                product_name: row.querySelector('input[name="product_name[]"]').value,
-                quantity: quantity,
-                unit: row.querySelector('.item-unit').value,
-                unit_price: unitPrice,
-                price_unit: row.querySelector('.item-price-unit').value
-            });
+
+    function updateTotal() {
+        let subtotal = 0;
+        document.querySelectorAll('.item-row').forEach(row => {
+            const quantity = parseFloat(row.querySelector('.item-quantity').value) || 0;
+            const unitPrice = parseFloat(row.querySelector('.item-unit-price').value) || 0;
+            subtotal += quantity * unitPrice;
+        });
+
+        const discountPercentage = parseFloat(document.getElementById('discount_percentage').value) || 0;
+        const discountAmount = subtotal * (discountPercentage / 100);
+        const subtotalAfterDiscount = subtotal - discountAmount;
+
+        const includeVat = document.getElementById('include_vat').checked;
+        const vatRate = 16;
+        const vatAmount = includeVat ? subtotalAfterDiscount * (vatRate / 100) : 0;
+        const total = subtotalAfterDiscount + vatAmount;
+
+        document.getElementById('subtotalAmount').textContent = 'KSh ' + subtotal.toFixed(2);
+        document.getElementById('discountAmount').textContent = 'KSh ' + discountAmount.toFixed(2);
+        document.getElementById('vatAmount').textContent = 'KSh ' + vatAmount.toFixed(2);
+        document.getElementById('totalAmount').textContent = 'KSh ' + total.toFixed(2);
+
+        const discountRow = document.getElementById('discountRow');
+        const hasDiscount = discountPercentage > 0;
+        discountRow.style.display = hasDiscount ? '' : 'none';
+
+        const vatRow = document.getElementById('vatRow');
+        vatRow.style.display = includeVat ? '' : 'none';
+    }
+
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', function () {
+        // Handle button click instead of form submit
+        const createBtn = document.getElementById('createQuotationBtn');
+        if (!createBtn) {
+            console.error('Create quotation button not found!');
+            return;
         }
-    });
 
-    if (items.length === 0) {
-        alert('Please add prices to at least one item');
-        return;
-    }
+        createBtn.addEventListener('click', async function (e) {
+            e.preventDefault();
+            e.stopPropagation();
 
-    const formData = {
-        customer_name: document.getElementById('customer_name').value,
-        customer_email: document.getElementById('customer_email').value,
-        customer_phone: document.getElementById('customer_phone').value,
-        branch_id: parseInt(document.getElementById('branch_id').value),
-        site_id: {{ request.site_id if request.site_id else 'null' }},
-        notes: document.getElementById('notes').value,
-        valid_until: document.getElementById('valid_until').value || null,
-        discount_percentage: parseFloat(document.getElementById('discount_percentage').value) || 0,
-        include_vat: document.getElementById('include_vat').checked,
-        vat_rate: 16.00,
-        show_quantity_in_pdf: document.getElementById('show_quantity_in_pdf').checked,
-        items: items
+            const items = [];
+            document.querySelectorAll('.item-row').forEach(row => {
+                const quantity = parseFloat(row.querySelector('.item-quantity').value);
+                const unitPrice = parseFloat(row.querySelector('.item-unit-price').value);
+
+                if (quantity > 0 && unitPrice > 0) {
+                    items.push({
+                        product_name: row.querySelector('input[name="product_name[]"]').value,
+                        quantity: quantity,
+                        unit: row.querySelector('.item-unit').value,
+                        unit_price: unitPrice,
+                        price_unit: row.querySelector('.item-price-unit').value
+                    });
+                }
+            });
+
+            if (items.length === 0) {
+                alert('Please add prices to at least one item');
+                return;
+            }
+
+            const formData = {
+                customer_name: document.getElementById('customer_name').value,
+                customer_email: document.getElementById('customer_email').value,
+                customer_phone: document.getElementById('customer_phone').value,
+                branch_id: parseInt(document.getElementById('branch_id').value),
+                site_id: {{ request.site_id if request.site_id else 'null' }
+        },
+            notes: document.getElementById('notes').value,
+            valid_until: document.getElementById('valid_until').value || null,
+            discount_percentage: parseFloat(document.getElementById('discount_percentage').value) || 0,
+            include_vat: document.getElementById('include_vat').checked,
+            vat_rate: 16.00,
+            show_quantity_in_pdf: document.getElementById('show_quantity_in_pdf').checked,
+            items: items
     };
 
     const submitBtn = document.getElementById('createQuotationBtn');
@@ -279,7 +290,7 @@ document.addEventListener('DOMContentLoaded', function() {
     submitBtn.disabled = true;
 
     try {
-        const response = await fetch('{{ url_for("convert_quotation_request", request_id=request.id) }}', {
+        const response = await fetch('{{ url_for("app_sales.convert_quotation_request", request_id=request.id) }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -292,12 +303,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const errorData = await response.json().catch(() => ({ message: 'HTTP ' + response.status }));
             throw new Error(errorData.message || 'Server error');
         }
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             alert('Quotation created successfully!');
-            window.location.href = '/quotations/' + data.quotation_id;
+            window.location.href = `/sales/quotations/${data.quotation_id}`;
         } else {
             alert('Error: ' + (data.message || 'Unknown error occurred'));
             submitBtn.innerHTML = originalText;
@@ -321,4 +332,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
