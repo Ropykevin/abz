@@ -1,0 +1,9 @@
+version: '3'
+services:
+  web:
+    build: .
+    env_file: .env
+    container_name: abzhardware
+    restart: always
+    ports:
+      - 5010:80
